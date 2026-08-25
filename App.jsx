@@ -445,6 +445,7 @@ function MiniFloorPlan({ block, side, hallcode }) {
 const BLOCKS = ["A", "B", "C", "D", "E", "F", "G", "K", "L", "M", "N", "P"];
 
 function SearchScreen({ go }) {
+  const [plotType, setPlotType] = useState("niche");
   const [q, setQ] = useState("");
   const [blockFilter, setBlockFilter] = useState("");
   const [selected, setSelected] = useState([]); // multi-select for combined quotation
@@ -461,8 +462,43 @@ function SearchScreen({ go }) {
     setSelected((prev) => (isSelected(r) ? prev.filter((s) => keyOf(s) !== keyOf(r)) : [...prev, r]));
   };
 
+  const typeToggle = (
+    <div className="flex gap-2 mb-3">
+      <button onClick={() => setPlotType("niche")} className="flex-1 rounded-xl px-3 py-2 text-sm"
+        style={{ background: plotType === "niche" ? COLOR.gold : COLOR.panel2, color: plotType === "niche" ? "#161512" : COLOR.inkSoft, fontFamily: FONT_BODY, fontWeight: 600 }}>
+        骨灰位 Niche
+      </button>
+      <button onClick={() => setPlotType("burial")} className="flex-1 rounded-xl px-3 py-2 text-sm"
+        style={{ background: plotType === "burial" ? COLOR.gold : COLOR.panel2, color: plotType === "burial" ? "#161512" : COLOR.inkSoft, fontFamily: FONT_BODY, fontWeight: 600 }}>
+        土葬 Burial Plot
+      </button>
+    </div>
+  );
+
+  if (plotType === "burial") {
+    return (
+      <div className="px-4 pt-4 pb-28">
+        {typeToggle}
+        <Card style={{ border: `1px solid ${COLOR.line}` }}>
+          <div className="flex items-center gap-2 mb-2">
+            <FileWarning size={16} color={COLOR.orange} />
+            <span style={{ color: COLOR.ink, fontFamily: FONT_BODY, fontWeight: 700, fontSize: 13 }}>暂时不支持逐格查询</span>
+          </div>
+          <p style={{ color: COLOR.inkSoft, fontFamily: FONT_BODY, fontSize: 12.5, lineHeight: 1.7 }}>
+            土葬各 Zone 的楼层图是扫描件,柱位编号没办法可靠地一格一格核实,所以这里不像骨灰位那样逐个搜索。
+            价格、现金回扣、头期/供期都已经在计算器里,直接选 Zone + 类别就能算。哪个柱位实际还空着,请跟主管确认。
+          </p>
+          <Btn onClick={() => go("calculator", null, null, "burial")} className="w-full mt-3">
+            <Calculator size={15} /> 去土葬计算器 Burial Plot Calculator
+          </Btn>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="px-4 pt-4 pb-28">
+      {typeToggle}
       <div className="flex items-center gap-1.5 mb-3 text-xs" style={{ color: COLOR.inkSoft, fontFamily: FONT_BODY }}>
         <Info size={13} /> 只列空置(available)福位 — 已售的不会出现在这里
       </div>
@@ -491,7 +527,7 @@ function SearchScreen({ go }) {
           const sel = isSelected(r);
           return (
             <Card key={i} style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <div className="flex-1" onClick={() => go("calculator", r)} style={{ cursor: "pointer" }}>
+              <div className="flex-1" onClick={() => go("calculator", r, null, "niche")} style={{ cursor: "pointer" }}>
                 <span style={{ fontFamily: FONT_DISPLAY, color: COLOR.ink, fontSize: 15, fontWeight: 700 }}>{r.block} 座 · {r.code}</span>
                 <div style={{ color: COLOR.inkSoft, fontSize: 12, fontFamily: FONT_BODY, marginTop: 2 }}>
                   {r.hallcode ? `Hall ${r.hallcode}` : "位置未精确标注"} · Level {r.level}
@@ -521,7 +557,7 @@ function SearchScreen({ go }) {
             <span style={{ color: "#161512", fontFamily: FONT_BODY, fontWeight: 700, fontSize: 13 }}>已选 {selected.length} 个福位</span>
             <div className="flex gap-2">
               <button onClick={() => setSelected([])} style={{ color: "#161512", fontFamily: FONT_BODY, fontSize: 12, fontWeight: 600, padding: "6px 10px" }}>清空</button>
-              <button onClick={() => go("calculator", null, selected)} className="rounded-lg px-3 py-1.5" style={{ background: "#161512", color: COLOR.gold, fontFamily: FONT_BODY, fontWeight: 700, fontSize: 12.5 }}>
+              <button onClick={() => go("calculator", null, selected, "niche")} className="rounded-lg px-3 py-1.5" style={{ background: "#161512", color: COLOR.gold, fontFamily: FONT_BODY, fontWeight: 700, fontSize: 12.5 }}>
                 生成组合报价单
               </button>
             </div>
@@ -637,8 +673,7 @@ function MultiQuoteView({ items }) {
   );
 }
 
-function CalculatorScreen({ prefill, multiItems }) {
-  const [mode, setMode] = useState("niche");
+function CalculatorScreen({ prefill, multiItems, mode, setMode }) {
   return (
     <div>
       <div className="px-4 pt-3 flex gap-2">
@@ -1168,11 +1203,13 @@ export default function App() {
   const [tab, setTab] = useState("home");
   const [calcPrefill, setCalcPrefill] = useState(null);
   const [calcMulti, setCalcMulti] = useState(null);
+  const [calcMode, setCalcMode] = useState("niche");
 
-  const go = (key, prefillData, multiData) => {
+  const go = (key, prefillData, multiData, calculatorMode) => {
     if (key === "calculator") {
       setCalcPrefill(prefillData || null);
       setCalcMulti(multiData && multiData.length > 0 ? multiData : null);
+      if (calculatorMode) setCalcMode(calculatorMode);
     }
     setTab(key);
   };
@@ -1187,7 +1224,7 @@ export default function App() {
 
         {tab === "home" && <HomeScreen go={go} />}
         {tab === "search" && <SearchScreen go={go} />}
-        {tab === "calculator" && <CalculatorScreen prefill={calcPrefill} multiItems={calcMulti} />}
+        {tab === "calculator" && <CalculatorScreen prefill={calcPrefill} multiItems={calcMulti} mode={calcMode} setMode={setCalcMode} />}
         {tab === "ai" && <AIReplyScreen />}
         {tab === "more" && <MoreScreen go={go} />}
         {tab === "promotions" && <PromotionsScreen />}
