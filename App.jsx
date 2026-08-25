@@ -153,6 +153,123 @@ function isActive(promo) {
 }
 const CURRENT_PROMO = { name: "Q3 2026 Customer Promotion", start: "2026-07-01", end: "2026-09-30" };
 
+/* ---------------------------- burial plot (土葬) data ------------------------------
+   Sourced from Papan Memorial Berhad's per-zone burial-plot price lists plus the
+   shared "Burial Plot - Special Cash Rebate" promotion table. Unlike the niche
+   (骨灰位) inventory above, each zone's layout plan is a scanned image whose plot
+   codes don't OCR reliably, so this is a price / installment calculator only — it
+   does not claim to know which individual plots are still available (kept honest,
+   not invented, same policy as the niche coverage gaps).
+   Rebate tiers are keyed by the down-payment % required to qualify ("20"/"30"/"50",
+   or "FP" for full payment). "STD" = zones with no documented cash-rebate promotion
+   on file, falling back to that zone's own standard installment terms instead.
+===================================================================== */
+const BURIAL_ZONES = [
+  {
+    key: "A", label: "Zone A / AS · 思亲园", size: "5.5' x 18' = 99 sq ft", pax: "1",
+    wef: "01 Jan 2024", tenureMonths: 24, dpPercent: 0.20, rebate: null,
+    categories: [
+      { key: "intermediate", label: "Intermediate", actual: 60380, promo: 60380 },
+      { key: "corner", label: "* Corner", actual: 62380, promo: 62380 },
+      { key: "side", label: "* Side", actual: 62380, promo: 62380 },
+      { key: "sideCorner3b", label: "* Side Corner (Row 3B)", actual: 64380, promo: 64380 },
+    ],
+  },
+  {
+    key: "B", label: "Zone B · 思孝园", size: "12' x 18' = 216 sq ft", pax: "2",
+    wef: "15 Aug 2024", tenureMonths: 48, dpPercent: 0.20, rebate: { "20": 1000, "30": 3000, FP: 5000 },
+    categories: [
+      { key: "intermediate", label: "Intermediate", actual: 133880, promo: 123880 },
+      { key: "sideCorner", label: "* Side / Corner", actual: 138880, promo: 128880 },
+      { key: "superSideCorner", label: "** Super Side / Corner", actual: 150880, promo: 140880, note: "限 B-1A-18 / B-1B-18 / B-1-18 / B-2-18" },
+    ],
+  },
+  {
+    key: "CA", label: "Zone CA · 聚福园", size: "12' x 20' = 240 sq ft", pax: "2",
+    wef: "01 Nov 2024", tenureMonths: 60, dpPercent: 0.20, rebate: { "20": 2000, "30": 4000, FP: 6000 },
+    categories: [
+      { key: "intermediate", label: "Intermediate", actual: 153680, promo: 143680 },
+      { key: "sideCornerPlanter", label: "* Side / Corner (Planter Box)", actual: 158680, promo: 148680 },
+      { key: "sideCornerPavilion", label: "* Side / Corner (Pavilion)", actual: 178680, promo: 168680 },
+    ],
+  },
+  {
+    key: "CB", label: "Zone CB · 聚福园", size: "15' x 20' = 300 sq ft", pax: "2",
+    wef: "01 Oct 2024", tenureMonths: 60, dpPercent: 0.20, rebate: { "20": 2000, "30": 4000, FP: 6000 },
+    categories: [
+      { key: "intermediate", label: "Intermediate", actual: 208680, promo: 188680 },
+      { key: "sideCornerPlanter", label: "* Side / Corner (Planter Box)", actual: 216680, promo: 196680 },
+      { key: "sideCornerPavilion", label: "* Side / Corner (Pavilion)", actual: 233680, promo: 213680 },
+      { key: "specialView", label: "*** Special View", actual: 213680, promo: 193680 },
+    ],
+  },
+  {
+    key: "DA", label: "Zone DA · 聚孝园(骨灰土葬 Urn Burial)", size: "3.8' x 6' = 22.8 sq ft", pax: "2",
+    wef: "01 Jan 2024", tenureMonths: 36, dpPercent: 0.30, rebate: { "30": 2000, "50": 4000, FP: 6000 },
+    categories: [
+      { key: "intermediate", label: "Intermediate", actual: 68880, promo: 51880 },
+      { key: "sideCorner", label: "Side / Corner", actual: 70880, promo: 53880 },
+    ],
+  },
+  {
+    key: "DB", label: "Zone DB · 聚孝园(Row 1–12)", size: "11' x 18' = 198 sq ft", pax: "2",
+    wef: "01 May 2026", tenureMonths: 36, dpPercent: 0.20, rebate: null,
+    categories: [
+      { key: "intermediate", label: "Intermediate", actual: 128880, promo: 118880 },
+      { key: "sideCorner", label: "* Side / Corner", actual: 134880, promo: 124880 },
+    ],
+  },
+  {
+    key: "DB13", label: "Zone DB · 聚孝园(Row 13, 单人 Standard Single)", size: "5.5' x 18' = 99 sq ft", pax: "1",
+    wef: "01 Jul 2026", tenureMonths: 36, dpPercent: 0.20, rebate: null,
+    categories: [
+      { key: "intermediate", label: "Intermediate", actual: 70680, promo: 60680 },
+      { key: "corner", label: "* Corner", actual: 73680, promo: 63680 },
+    ],
+  },
+  {
+    key: "IZ", label: "Zone IZ · 帝苑(Imperial / Mini Family)", size: "24' x 25' = 600 sq ft", pax: "2 / 4",
+    wef: "01 Jan 2024", tenureMonths: 60, dpPercent: 0.20, rebate: { "20": 5000, "30": 8000, FP: 12000 },
+    categories: [
+      { key: "standard", label: "Standard", actual: 538880, promo: 481880 },
+    ],
+  },
+];
+
+function burialRebateTiers(zone) {
+  return zone.rebate ? Object.keys(zone.rebate) : ["STD"];
+}
+function burialTierDpPercent(zone, tierKey) {
+  if (tierKey === "FP") return 1;
+  if (tierKey === "STD") return zone.dpPercent;
+  return Number(tierKey) / 100;
+}
+function burialTierRebateAmount(zone, tierKey) {
+  if (tierKey === "STD") return 0;
+  return zone.rebate?.[tierKey] ?? 0;
+}
+// Same rounding convention as the niche computeInstallment: monthly rounds down to
+// the nearest RM10, and the rounding remainder is folded back into the down payment
+// (verified against every worked example in the company's promo slide deck — matches
+// to the ringgit for Zones B / CA / CB / DA across all documented tiers).
+function computeBurialInstallment(netPrice, dpPercent, tenure) {
+  const rawDP = netPrice * dpPercent;
+  const rawRemaining = netPrice - rawDP;
+  const rawMonthly = rawRemaining / tenure;
+  const roundedMonthly = Math.floor(rawMonthly / 10) * 10;
+  const diff = rawMonthly - roundedMonthly;
+  const finalDP = rawDP + diff * tenure;
+  return { tenure, downPayment: finalDP, monthly: roundedMonthly };
+}
+function computeBurialTier(zone, promoPrice, tierKey) {
+  const rebate = burialTierRebateAmount(zone, tierKey);
+  const netPrice = promoPrice - rebate;
+  if (tierKey === "FP") return { tierKey, rebate, netPrice, downPayment: netPrice, monthly: 0, tenure: 0, isFP: true };
+  const dpPercent = burialTierDpPercent(zone, tierKey);
+  const plan = computeBurialInstallment(netPrice, dpPercent, zone.tenureMonths);
+  return { tierKey, rebate, netPrice, downPayment: plan.downPayment, monthly: plan.monthly, tenure: plan.tenure, isFP: false };
+}
+const BURIAL_TIER_LABEL = { "20": "20% 头期", "30": "30% 头期", "50": "50% 头期", FP: "Full Payment 全款", STD: "标准供期 Standard" };
 
 /* ---------------------------- shared bits ------------------------------ */
 function AlphaMark({ size = 20 }) {
@@ -521,10 +638,24 @@ function MultiQuoteView({ items }) {
 }
 
 function CalculatorScreen({ prefill, multiItems }) {
-  if (multiItems && multiItems.length > 0) {
-    return <MultiQuoteView items={multiItems} />;
-  }
-  return <SingleQuoteView prefill={prefill} />;
+  const [mode, setMode] = useState("niche");
+  return (
+    <div>
+      <div className="px-4 pt-3 flex gap-2">
+        <button onClick={() => setMode("niche")} className="flex-1 rounded-xl px-3 py-2 text-sm"
+          style={{ background: mode === "niche" ? COLOR.gold : COLOR.panel2, color: mode === "niche" ? "#161512" : COLOR.inkSoft, fontFamily: FONT_BODY, fontWeight: 600 }}>
+          骨灰位 Niche
+        </button>
+        <button onClick={() => setMode("burial")} className="flex-1 rounded-xl px-3 py-2 text-sm"
+          style={{ background: mode === "burial" ? COLOR.gold : COLOR.panel2, color: mode === "burial" ? "#161512" : COLOR.inkSoft, fontFamily: FONT_BODY, fontWeight: 600 }}>
+          土葬 Burial Plot
+        </button>
+      </div>
+      {mode === "niche"
+        ? (multiItems && multiItems.length > 0 ? <MultiQuoteView items={multiItems} /> : <SingleQuoteView prefill={prefill} />)
+        : <BurialPlotView />}
+    </div>
+  );
 }
 
 function SingleQuoteView({ prefill }) {
@@ -715,6 +846,95 @@ function SingleQuoteView({ prefill }) {
   );
 }
 
+function BurialPlotView() {
+  const [zoneKey, setZoneKey] = useState(BURIAL_ZONES[0].key);
+  const [categoryKey, setCategoryKey] = useState(BURIAL_ZONES[0].categories[0].key);
+  const [tierKey, setTierKey] = useState("");
+
+  const zone = BURIAL_ZONES.find((z) => z.key === zoneKey) || BURIAL_ZONES[0];
+  const category = zone.categories.find((c) => c.key === categoryKey) || zone.categories[0];
+  const tiers = burialRebateTiers(zone);
+  const activeTierKey = tiers.includes(tierKey) ? tierKey : tiers[0];
+
+  const result = computeBurialTier(zone, category.promo, activeTierKey);
+
+  const handleZoneChange = (key) => {
+    const nextZone = BURIAL_ZONES.find((z) => z.key === key) || BURIAL_ZONES[0];
+    setZoneKey(key);
+    setCategoryKey(nextZone.categories[0].key);
+    setTierKey(burialRebateTiers(nextZone)[0]);
+  };
+
+  return (
+    <div className="px-4 pt-4 pb-24">
+      <div className="flex items-center gap-1.5 mb-3 text-xs" style={{ color: COLOR.inkSoft, fontFamily: FONT_BODY }}>
+        <Info size={13} /> 土葬各 Zone 价格来自公司价格表;计算一律以「促销价 Promo Price」为准,原价只作参考
+      </div>
+
+      <div className="grid grid-cols-2 gap-2 mb-3">
+        <div>
+          <div style={{ color: COLOR.inkSoft, fontSize: 11, fontFamily: FONT_BODY, marginBottom: 4 }}>Zone</div>
+          <Select value={zone.key} onChange={(e) => handleZoneChange(e.target.value)}>
+            {BURIAL_ZONES.map((z) => <option key={z.key} value={z.key}>{z.label}</option>)}
+          </Select>
+        </div>
+        <div>
+          <div style={{ color: COLOR.inkSoft, fontSize: 11, fontFamily: FONT_BODY, marginBottom: 4 }}>类别 Category</div>
+          <Select value={category.key} onChange={(e) => setCategoryKey(e.target.value)}>
+            {zone.categories.map((c) => <option key={c.key} value={c.key}>{c.label}</option>)}
+          </Select>
+        </div>
+      </div>
+
+      {category.note && (
+        <p style={{ color: COLOR.orange, fontFamily: FONT_BODY, fontSize: 11.5, marginBottom: 10 }}>⚠️ {category.note}</p>
+      )}
+
+      <Card style={{ marginTop: 4, border: `1px solid ${COLOR.gold}55` }}>
+        <div style={{ color: COLOR.gold, fontFamily: FONT_BODY, fontWeight: 700, fontSize: 12 }}>
+          {zone.label} · {category.label}
+        </div>
+        <Row label="面积 Size" value={zone.size} />
+        <Row label="用位 No. of Interment" value={`${zone.pax} 位`} />
+        <Row label="原价 Actual Price" value={money(category.actual)} />
+        <Row label="促销价 Promo Price(以此价格计算)" value={money(category.promo)} bold accent />
+        <Row label="价格生效日 WEF" value={zone.wef} />
+      </Card>
+
+      <div className="flex gap-2 mt-3 mb-1 flex-wrap">
+        {tiers.map((t) => (
+          <button key={t} onClick={() => setTierKey(t)} className="rounded-xl px-3 py-2 text-sm"
+            style={{ background: activeTierKey === t ? COLOR.gold : COLOR.panel2, color: activeTierKey === t ? "#161512" : COLOR.inkSoft, fontFamily: FONT_BODY, fontWeight: 600 }}>
+            {BURIAL_TIER_LABEL[t] || t}
+          </button>
+        ))}
+      </div>
+
+      <Card style={{ marginTop: 8, border: `1px solid ${result.isFP ? COLOR.green : COLOR.gold}55` }}>
+        <div style={{ color: result.isFP ? COLOR.green : COLOR.gold, fontFamily: FONT_BODY, fontWeight: 700, fontSize: 12 }}>
+          {result.isFP ? "全额付款 Full Payment" : `${BURIAL_TIER_LABEL[result.tierKey] || result.tierKey} 分期方案`}
+        </div>
+        <Row label={zone.rebate ? "促销现金回扣 Cash Rebate" : "此 Zone 暂无现金回扣促销资料"} value={result.rebate ? "-" + money(result.rebate) : "—"} />
+        <Row label="净价 Net Price" value={money(result.netPrice)} bold />
+        {result.isFP ? (
+          <Row label="全款金额 Full Payment Amount" value={money(result.downPayment)} bold accent />
+        ) : (
+          <>
+            <Row label="头期 Down Payment" value={money(result.downPayment)} bold accent />
+            <Row label="供期 Tenure" value={`${result.tenure} 个月`} />
+            <Row label="每月供款 Monthly" value={money(result.monthly) + " / 月"} bold />
+          </>
+        )}
+      </Card>
+
+      <div className="mt-3 text-[11px]" style={{ color: COLOR.inkSoft, fontFamily: FONT_BODY, lineHeight: 1.7 }}>
+        Booking fee RM500 起(Zone IZ 为 RM1,000)· Sheng-Ji 附加费一般 RM1,200/次(Zone DA 为 RM650)。价格与促销以公司最新公布为准。
+        此计算器不含逐格查询——各 Zone 楼层图上实际哪个柱位还空置,请与主管确认后再报价。
+      </div>
+    </div>
+  );
+}
+
 /* ============================ HOME / OTHER SCREENS =================================== */
 function FeatureCard({ icon, label, desc, onClick, big }) {
   const Icon = icon;
@@ -751,7 +971,7 @@ function HomeScreen({ go }) {
       </Card>
       <div className="grid grid-cols-2 gap-3">
         <FeatureCard icon={MapPin} label="查福位 Find a Lot" desc={`目前空置 ${availCount} 个`} onClick={() => go("search")} big />
-        <FeatureCard icon={Calculator} label="价格计算 Calculator" desc="原价、回扣、头期、供期" onClick={() => go("calculator")} big />
+        <FeatureCard icon={Calculator} label="价格计算 Calculator" desc="骨灰位 + 土葬 · 原价、回扣、头期、供期" onClick={() => go("calculator")} big />
         <FeatureCard icon={Tag} label="促销 Promotions" desc="现金回扣详情" onClick={() => go("promotions")} />
         <FeatureCard icon={Sparkles} label="AI 回复助手" desc="协助回答客户" onClick={() => go("ai")} />
         <FeatureCard icon={BookOpen} label="产品资料" desc="常见问题" onClick={() => go("knowledge")} />
@@ -935,6 +1155,9 @@ function MoreScreen({ go }) {
         <p style={{ color: COLOR.inkSoft, fontFamily: FONT_BODY, fontSize: 12, lineHeight: 1.6 }}>
           福位空缺、价格、现金回扣、头期/供期算法都是真实资料。约 9% 的空置福位因楼层图排版关系没能精确标注 Hall
           位置(状态本身是准的),Block F 地面层(F1/F2/F3)暂无价格表。促销每季度换一次,记得更新。
+          <br />
+          土葬(Zone A/AS、B、CA、CB、DA、DB、IZ)价格、现金回扣、头期/供期算法也是真实资料,但只做到价格计算——
+          楼层图是扫描件没法可靠 OCR 出每个柱位编号,所以土葬这边暂时没有像骨灰位那样逐格查空置的功能。
         </p>
       </Card>
     </div>
