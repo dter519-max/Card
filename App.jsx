@@ -21,6 +21,9 @@ import {
   XCircle,
   HelpCircle,
   Info,
+  LogIn,
+  LogOut,
+  KeyRound,
 } from "lucide-react";
 
 /* =====================================================================
@@ -1414,6 +1417,342 @@ function CompetitorScreen() {
 }
 
 /* ============================ APP SHELL ================================= */
+/* ============================ ACCOUNTS / LOGIN ===================================
+   IMPORTANT — what this login is and isn't:
+   This app is a static bundle with no backend, so the check below runs entirely in
+   the visitor's own browser. It keeps the app tidy (each agent signs in, admin vs
+   user sees different things) and stops casual snooping, but it is NOT real access
+   control: anyone who opens DevTools on the deployed page can read this code and
+   walk straight past it. Real protection needs a server that refuses to send the
+   data until it has verified a login. Don't treat this gate as one.
+   Accounts live in this browser's localStorage, so they are per-device: a user
+   added on one phone does not exist on another.
+=================================================================================== */
+const AUTH_USERS_KEY = "alphaAgentSystem.users.v1";
+const AUTH_SESSION_KEY = "alphaAgentSystem.session.v1";
+const ADMIN_EMAIL = "dter519@gmail.com";
+const ADMIN_DEFAULT_PASSWORD = "Aa123456@";
+
+const normalizeEmail = (email) => (email || "").trim().toLowerCase();
+
+// SHA-256 where the browser gives it to us (https / localhost). Opening the file
+// straight off disk (file://) has no crypto.subtle, so fall back to a plain string
+// hash rather than letting sign-in break entirely — it is self-consistent per
+// browser, which is all this soft gate needs.
+async function hashPassword(password) {
+  const salted = `alpha-agent-system::${password}`;
+  if (globalThis.crypto?.subtle) {
+    const digest = await globalThis.crypto.subtle.digest("SHA-256", new TextEncoder().encode(salted));
+    return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, "0")).join("");
+  }
+  let h1 = 0x811c9dc5, h2 = 0x01000193;
+  for (let i = 0; i < salted.length; i++) {
+    h1 = Math.imul(h1 ^ salted.charCodeAt(i), 16777619) >>> 0;
+    h2 = Math.imul(h2 + salted.charCodeAt(i) * (i + 1), 2246822519) >>> 0;
+  }
+  return `fallback-${h1.toString(16)}${h2.toString(16)}`;
+}
+
+function readStore(key, fallback) {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : fallback;
+  } catch {
+    return fallback;
+  }
+}
+function writeStore(key, value) {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function loadOrSeedUsers() {
+  const stored = readStore(AUTH_USERS_KEY, null);
+  if (Array.isArray(stored) && stored.length > 0) return stored;
+  const seeded = [{
+    email: ADMIN_EMAIL,
+    name: "Admin",
+    role: "admin",
+    passwordHash: await hashPassword(ADMIN_DEFAULT_PASSWORD),
+    usingDefaultPassword: true,
+    createdAt: new Date().toISOString(),
+  }];
+  writeStore(AUTH_USERS_KEY, seeded);
+  return seeded;
+}
+
+const PASSWORD_MIN_LENGTH = 8;
+function passwordProblem(password) {
+  if (!password || password.length < PASSWORD_MIN_LENGTH) return `密码至少要 ${PASSWORD_MIN_LENGTH} 位`;
+  return null;
+}
+
+function LoginScreen({ onSignIn }) {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const submit = async () => {
+    setError("");
+    if (!email.trim() || !password) {
+      setError("请输入邮箱和密码");
+      return;
+    }
+    setBusy(true);
+    try {
+      const result = await onSignIn(normalizeEmail(email), password);
+      if (!result.ok) setError(result.error);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div style={{ background: COLOR.bg, minHeight: "100vh" }} className="flex items-center justify-center px-5">
+      <div className="w-full" style={{ maxWidth: 380 }}>
+        <div className="flex flex-col items-center mb-7">
+          <AlphaMark size={46} />
+          <div style={{ fontFamily: FONT_DISPLAY, color: COLOR.ink, fontSize: 21, fontWeight: 700, marginTop: 14 }}>
+            Alpha Agent System
+          </div>
+          <div style={{ fontFamily: FONT_BODY, color: COLOR.inkSoft, fontSize: 12.5, marginTop: 4 }}>
+            甲板山庄 Jiangnan Villa · 销售系统
+          </div>
+        </div>
+
+        <Card style={{ border: `1px solid ${COLOR.line}` }}>
+          <div style={{ color: COLOR.inkSoft, fontSize: 11, fontFamily: FONT_BODY, marginBottom: 5 }}>邮箱 Email</div>
+          <TextInput
+            type="email" autoComplete="username" placeholder="you@example.com"
+            value={email} onChange={(e) => setEmail(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") submit(); }}
+          />
+
+          <div style={{ color: COLOR.inkSoft, fontSize: 11, fontFamily: FONT_BODY, margin: "14px 0 5px" }}>密码 Password</div>
+          <TextInput
+            type="password" autoComplete="current-password" placeholder="••••••••"
+            value={password} onChange={(e) => setPassword(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") submit(); }}
+          />
+
+          {error && (
+            <div className="flex items-start gap-1.5 mt-3" style={{ color: COLOR.red, fontFamily: FONT_BODY, fontSize: 12 }}>
+              <AlertTriangle size={13} style={{ marginTop: 1, flexShrink: 0 }} /> {error}
+            </div>
+          )}
+
+          <Btn onClick={submit} disabled={busy} className="w-full mt-4">
+            {busy ? <Loader2 size={15} className="animate-spin" /> : <LogIn size={15} />}
+            {busy ? "登入中…" : "登入 Sign in"}
+          </Btn>
+        </Card>
+
+        <p className="mt-4 text-center" style={{ color: COLOR.inkSoft, fontFamily: FONT_BODY, fontSize: 11, lineHeight: 1.7 }}>
+          账号由管理员开设。忘记密码请找管理员重设。
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function RolePill({ role }) {
+  const admin = role === "admin";
+  return (
+    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px]"
+      style={{ background: admin ? COLOR.goldSoft : COLOR.panel2, color: admin ? COLOR.gold : COLOR.inkSoft, fontFamily: FONT_BODY, fontWeight: 700, letterSpacing: 0.3 }}>
+      {admin ? <ShieldCheck size={11} /> : <CircleUserRound size={11} />}
+      {admin ? "ADMIN 管理员" : "USER 用户"}
+    </span>
+  );
+}
+
+function AccountsScreen({ currentUser, users, onUpdateUsers, onSignOut }) {
+  const isAdmin = currentUser.role === "admin";
+  const [notice, setNotice] = useState(null); // { kind: "ok" | "err", text }
+
+  // change own password
+  const [oldPw, setOldPw] = useState("");
+  const [newPw, setNewPw] = useState("");
+
+  // add user (admin only)
+  const [newEmail, setNewEmail] = useState("");
+  const [newUserPw, setNewUserPw] = useState("");
+  const [newRole, setNewRole] = useState("user");
+
+  const say = (kind, text) => setNotice({ kind, text });
+
+  const doChangeOwnPassword = async () => {
+    setNotice(null);
+    const me = users.find((u) => u.email === currentUser.email);
+    if (!me) { say("err", "找不到这个账号"); return; }
+    if (me.passwordHash !== (await hashPassword(oldPw))) { say("err", "旧密码不正确"); return; }
+    const problem = passwordProblem(newPw);
+    if (problem) { say("err", problem); return; }
+    const hash = await hashPassword(newPw);
+    onUpdateUsers(users.map((u) => (u.email === me.email ? { ...u, passwordHash: hash, usingDefaultPassword: false } : u)));
+    setOldPw(""); setNewPw("");
+    say("ok", "密码已更新");
+  };
+
+  const addUser = async () => {
+    setNotice(null);
+    const email = normalizeEmail(newEmail);
+    if (!email.includes("@")) { say("err", "请输入正确的邮箱"); return; }
+    if (users.some((u) => u.email === email)) { say("err", "这个邮箱已经有账号了"); return; }
+    const problem = passwordProblem(newUserPw);
+    if (problem) { say("err", problem); return; }
+    const hash = await hashPassword(newUserPw);
+    onUpdateUsers([...users, {
+      email, name: email.split("@")[0], role: newRole,
+      passwordHash: hash, usingDefaultPassword: false, createdAt: new Date().toISOString(),
+    }]);
+    setNewEmail(""); setNewUserPw(""); setNewRole("user");
+    say("ok", `已开设账号 ${email}`);
+  };
+
+  const resetPassword = async (email) => {
+    setNotice(null);
+    const pw = prompt(`给 ${email} 设一个新密码(至少 ${PASSWORD_MIN_LENGTH} 位):`);
+    if (pw == null) return;
+    const problem = passwordProblem(pw);
+    if (problem) { say("err", problem); return; }
+    const hash = await hashPassword(pw);
+    onUpdateUsers(users.map((u) => (u.email === email ? { ...u, passwordHash: hash, usingDefaultPassword: false } : u)));
+    say("ok", `${email} 的密码已重设`);
+  };
+
+  const adminCount = users.filter((u) => u.role === "admin").length;
+
+  const toggleRole = (email) => {
+    setNotice(null);
+    const target = users.find((u) => u.email === email);
+    if (!target) return;
+    if (target.role === "admin" && adminCount <= 1) { say("err", "至少要保留一个管理员"); return; }
+    onUpdateUsers(users.map((u) => (u.email === email ? { ...u, role: u.role === "admin" ? "user" : "admin" } : u)));
+    say("ok", `${email} 已改为${target.role === "admin" ? "用户" : "管理员"}`);
+  };
+
+  const removeUser = (email) => {
+    setNotice(null);
+    if (email === currentUser.email) { say("err", "不能删除自己正在用的账号"); return; }
+    const target = users.find((u) => u.email === email);
+    if (target?.role === "admin" && adminCount <= 1) { say("err", "至少要保留一个管理员"); return; }
+    if (!confirm(`确定删除 ${email} 这个账号?`)) return;
+    onUpdateUsers(users.filter((u) => u.email !== email));
+    say("ok", `已删除 ${email}`);
+  };
+
+  const me = users.find((u) => u.email === currentUser.email);
+
+  return (
+    <div className="px-4 pt-4 pb-24 space-y-3">
+      <Card style={{ border: `1px solid ${COLOR.gold}55` }}>
+        <div className="flex items-center justify-between mb-2">
+          <div>
+            <div style={{ color: COLOR.ink, fontFamily: FONT_BODY, fontWeight: 700, fontSize: 14 }}>{currentUser.email}</div>
+            <div className="mt-1.5"><RolePill role={currentUser.role} /></div>
+          </div>
+          <Btn variant="ghost" onClick={onSignOut} style={{ padding: "8px 12px" }}>
+            <LogOut size={14} /> 登出
+          </Btn>
+        </div>
+      </Card>
+
+      {me?.usingDefaultPassword && (
+        <Card style={{ border: `1px solid ${COLOR.orange}66`, background: COLOR.orangeBg }}>
+          <div className="flex items-start gap-2">
+            <AlertTriangle size={15} color={COLOR.orange} style={{ marginTop: 1, flexShrink: 0 }} />
+            <p style={{ color: COLOR.ink, fontFamily: FONT_BODY, fontSize: 12, lineHeight: 1.7 }}>
+              你还在用系统给的默认密码,而这个默认密码是写在部署说明里、别人也看得到的。请马上在下面改掉。
+            </p>
+          </div>
+        </Card>
+      )}
+
+      {notice && (
+        <div className="flex items-start gap-1.5 px-1" style={{ color: notice.kind === "ok" ? COLOR.green : COLOR.red, fontFamily: FONT_BODY, fontSize: 12 }}>
+          {notice.kind === "ok" ? <CheckCircle2 size={13} style={{ marginTop: 1, flexShrink: 0 }} /> : <AlertTriangle size={13} style={{ marginTop: 1, flexShrink: 0 }} />}
+          {notice.text}
+        </div>
+      )}
+
+      <Card>
+        <div style={{ color: COLOR.ink, fontFamily: FONT_BODY, fontWeight: 600, fontSize: 13, marginBottom: 10 }}>修改我的密码</div>
+        <TextInput type="password" autoComplete="current-password" placeholder="旧密码" value={oldPw} onChange={(e) => setOldPw(e.target.value)} />
+        <div className="mb-2" />
+        <TextInput type="password" autoComplete="new-password" placeholder={`新密码(至少 ${PASSWORD_MIN_LENGTH} 位)`} value={newPw} onChange={(e) => setNewPw(e.target.value)} />
+        <Btn onClick={doChangeOwnPassword} className="w-full mt-3" variant="ghost"><KeyRound size={14} /> 更新密码</Btn>
+      </Card>
+
+      {isAdmin && (
+        <>
+          <Card>
+            <div style={{ color: COLOR.ink, fontFamily: FONT_BODY, fontWeight: 600, fontSize: 13, marginBottom: 10 }}>开新账号 Add Account</div>
+            <TextInput type="email" placeholder="邮箱 email" value={newEmail} onChange={(e) => setNewEmail(e.target.value)} />
+            <div className="mb-2" />
+            <TextInput type="password" autoComplete="new-password" placeholder={`密码(至少 ${PASSWORD_MIN_LENGTH} 位)`} value={newUserPw} onChange={(e) => setNewUserPw(e.target.value)} />
+            <div className="mb-2" />
+            <Select value={newRole} onChange={(e) => setNewRole(e.target.value)}>
+              <option value="user">USER 用户 — 只能用系统</option>
+              <option value="admin">ADMIN 管理员 — 可以管账号</option>
+            </Select>
+            <Btn onClick={addUser} className="w-full mt-3"><Plus size={14} /> 开设账号</Btn>
+          </Card>
+
+          <div style={{ color: COLOR.inkSoft, fontFamily: FONT_BODY, fontSize: 11.5, padding: "4px 2px" }}>
+            所有账号 · {users.length} 个
+          </div>
+
+          {users.map((u) => (
+            <Card key={u.email} style={{ padding: 14 }}>
+              <div className="flex items-center justify-between gap-2">
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ color: COLOR.ink, fontFamily: FONT_BODY, fontWeight: 600, fontSize: 13, overflowWrap: "anywhere" }}>
+                    {u.email}{u.email === currentUser.email && <span style={{ color: COLOR.inkSoft, fontWeight: 400 }}>(我)</span>}
+                  </div>
+                  <div className="mt-1.5 flex items-center gap-2">
+                    <RolePill role={u.role} />
+                    {u.usingDefaultPassword && (
+                      <span style={{ color: COLOR.orange, fontFamily: FONT_BODY, fontSize: 10, fontWeight: 700 }}>默认密码未改</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+              <div className="flex gap-2 mt-3">
+                <Btn variant="ghost" onClick={() => resetPassword(u.email)} style={{ flex: 1, padding: "7px 8px", fontSize: 12 }}>
+                  <KeyRound size={13} /> 重设密码
+                </Btn>
+                <Btn variant="ghost" onClick={() => toggleRole(u.email)} style={{ flex: 1, padding: "7px 8px", fontSize: 12 }}>
+                  {u.role === "admin" ? "改为用户" : "升为管理员"}
+                </Btn>
+                <Btn variant="danger" onClick={() => removeUser(u.email)} style={{ padding: "7px 10px", fontSize: 12 }}>
+                  <Trash2 size={13} />
+                </Btn>
+              </div>
+            </Card>
+          ))}
+        </>
+      )}
+
+      <Card style={{ marginTop: 4 }}>
+        <div className="flex items-start gap-2">
+          <Info size={14} color={COLOR.inkSoft} style={{ marginTop: 2, flexShrink: 0 }} />
+          <p style={{ color: COLOR.inkSoft, fontFamily: FONT_BODY, fontSize: 11.5, lineHeight: 1.7 }}>
+            这个登入是「软门」:整个系统是纯前端的,没有后台服务器,所以懂技术的人打开浏览器开发者工具就能绕过去看到里面的资料。
+            它能挡住随手点进来的人、也能分清谁是管理员,但不等于真正的资料保护。
+            账号是存在这台设备的浏览器里的,换一台手机/电脑要重新开账号。
+          </p>
+        </div>
+      </Card>
+    </div>
+  );
+}
+
 const NAV = [
   { key: "home", label: "首页", icon: HomeIcon },
   { key: "search", label: "查福位", icon: Search },
@@ -1425,11 +1764,18 @@ const TITLES = {
   home: "Home 首页", search: "Find a Lot 查福位", calculator: "Price Calculator 价格计算",
   ai: "AI Sales Reply", more: "More 更多", promotions: "Promotions 促销",
   knowledge: "Product Knowledge 常见问题", competitor: "Competitor 竞品比较",
+  accounts: "Accounts 账号管理",
 };
 
-function MoreScreen({ go }) {
+function MoreScreen({ go, currentUser }) {
   return (
     <div className="px-4 pt-4 pb-24 space-y-3">
+      <FeatureCard
+        icon={currentUser?.role === "admin" ? ShieldCheck : CircleUserRound}
+        label={currentUser?.role === "admin" ? "账号管理 Accounts" : "我的账号 My Account"}
+        desc={currentUser?.role === "admin" ? `${currentUser.email} · 管理员` : currentUser?.email}
+        onClick={() => go("accounts")}
+      />
       <FeatureCard icon={Tag} label="促销 Promotions" desc="现金回扣详情" onClick={() => go("promotions")} />
       <FeatureCard icon={BookOpen} label="产品资料 Knowledge" desc="常见问题" onClick={() => go("knowledge")} />
       <FeatureCard icon={Users} label="竞品比较 Competitor" desc="对比竞争对手" onClick={() => go("competitor")} />
@@ -1455,6 +1801,46 @@ export default function App() {
   const [calcMulti, setCalcMulti] = useState(null);
   const [calcMode, setCalcMode] = useState("niche");
 
+  const [users, setUsers] = useState([]);
+  const [sessionEmail, setSessionEmail] = useState(null);
+  const [authReady, setAuthReady] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const seeded = await loadOrSeedUsers();
+      if (cancelled) return;
+      const saved = readStore(AUTH_SESSION_KEY, null);
+      setUsers(seeded);
+      if (saved?.email && seeded.some((u) => u.email === saved.email)) setSessionEmail(saved.email);
+      setAuthReady(true);
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  const currentUser = users.find((u) => u.email === sessionEmail) || null;
+
+  const updateUsers = (next) => {
+    setUsers(next);
+    writeStore(AUTH_USERS_KEY, next);
+  };
+
+  const signIn = async (email, password) => {
+    const user = users.find((u) => u.email === email);
+    if (!user || user.passwordHash !== (await hashPassword(password))) {
+      return { ok: false, error: "邮箱或密码不正确" };
+    }
+    setSessionEmail(user.email);
+    writeStore(AUTH_SESSION_KEY, { email: user.email, at: new Date().toISOString() });
+    return { ok: true };
+  };
+
+  const signOut = () => {
+    setSessionEmail(null);
+    writeStore(AUTH_SESSION_KEY, null);
+    setTab("home");
+  };
+
   const go = (key, prefillData, multiData, calculatorMode) => {
     if (key === "calculator") {
       setCalcPrefill(prefillData || null);
@@ -1464,11 +1850,35 @@ export default function App() {
     setTab(key);
   };
 
-  const subScreen = ["promotions", "knowledge", "competitor"].includes(tab);
+  const subScreen = ["promotions", "knowledge", "competitor", "accounts"].includes(tab);
+
+  const fontImport = (
+    <style>{`@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600;700&display=swap');`}</style>
+  );
+
+  if (!authReady) {
+    return (
+      <div style={{ fontFamily: FONT_BODY }}>
+        {fontImport}
+        <div style={{ background: COLOR.bg, minHeight: "100vh" }} className="flex items-center justify-center">
+          <Loader2 size={22} color={COLOR.gold} className="animate-spin" />
+        </div>
+      </div>
+    );
+  }
+
+  if (!currentUser) {
+    return (
+      <div style={{ fontFamily: FONT_BODY }}>
+        {fontImport}
+        <LoginScreen onSignIn={signIn} />
+      </div>
+    );
+  }
 
   return (
     <div style={{ fontFamily: FONT_BODY }}>
-      <style>{`@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600;700&display=swap');`}</style>
+      {fontImport}
       <div style={{ background: COLOR.bg, minHeight: "100vh" }}>
         <TopBar title={TITLES[tab]} onBack={subScreen ? () => setTab("home") : null} right={<AlphaMark size={22} />} />
 
@@ -1476,7 +1886,10 @@ export default function App() {
         {tab === "search" && <SearchScreen go={go} />}
         {tab === "calculator" && <CalculatorScreen prefill={calcPrefill} multiItems={calcMulti} mode={calcMode} setMode={setCalcMode} />}
         {tab === "ai" && <AIReplyScreen />}
-        {tab === "more" && <MoreScreen go={go} />}
+        {tab === "more" && <MoreScreen go={go} currentUser={currentUser} />}
+        {tab === "accounts" && (
+          <AccountsScreen currentUser={currentUser} users={users} onUpdateUsers={updateUsers} onSignOut={signOut} />
+        )}
         {tab === "promotions" && <PromotionsScreen />}
         {tab === "knowledge" && <KnowledgeScreen />}
         {tab === "competitor" && <CompetitorScreen />}
