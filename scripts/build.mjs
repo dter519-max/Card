@@ -7,11 +7,12 @@
 //   npm run build     -> dist/index.html + dist/CNAME
 //   npm run deploy    -> build, then surge dist alphaagentsystem.surge.sh
 //
-import { execFileSync } from "node:child_process";
-import { mkdirSync, readFileSync, writeFileSync, rmSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import * as esbuild from "esbuild";
+import postcss from "postcss";
+import tailwindcss from "tailwindcss";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const p = (...parts) => resolve(root, ...parts);
@@ -35,16 +36,14 @@ writeFileSync(CLASSES_FILE, [...classes].sort().join("\n"));
 step(`  ${classes.size} classes`);
 
 // 2. Tailwind ---------------------------------------------------------------------
+// Run Tailwind through PostCSS in-process rather than shelling out to the CLI:
+// on Windows, Node refuses to execFileSync a .cmd shim (EINVAL), so `npx tailwindcss`
+// breaks there. No subprocess means no platform-specific launcher at all.
 step("building CSS…");
-const cssOut = p("dist", "_tailwind.css");
 mkdirSync(p("dist"), { recursive: true });
-execFileSync(
-  process.platform === "win32" ? "npx.cmd" : "npx",
-  ["tailwindcss", "-i", p("input.css"), "-o", cssOut, "--minify"],
-  { cwd: root, stdio: ["ignore", "ignore", "pipe"] },
-);
-const css = readFileSync(cssOut, "utf8");
-rmSync(cssOut);
+const inputCss = readFileSync(p("input.css"), "utf8");
+const { css } = await postcss([tailwindcss({ config: p("tailwind.config.js") })])
+  .process(inputCss, { from: p("input.css"), to: undefined });
 
 // 3. Bundle the app ---------------------------------------------------------------
 step("bundling JS…");
