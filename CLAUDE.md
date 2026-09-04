@@ -40,17 +40,22 @@ npm run deploy     # build + surge dist alphaagentsystem.surge.sh
 资料是**快照不是实时**（`NICHE_STATUS_UPDATED` / `BURIAL_STATUS_UPDATED`），每天都有成交。
 用户会不定期传新的导出 PDF 来更新。
 
-更新资料用 `scripts/update_niche_data.py`（骨灰位），别再从头写解析器 —— 下面每个坑
-都已经修在里面了，重写一次就会重踩一次：
+更新资料有两支脚本，骨灰位和土葬各一支。别再从头写解析器 —— 下面每个坑都已经修在
+里面了，重写一次就会重踩一次：
 
 ```bash
 pip install pymupdf
-python3 scripts/update_niche_data.py "Niche Floor Plan (xxxxxxxx).pdf"   # 直接改 App.jsx
-python3 scripts/update_niche_data.py plan.pdf --check                      # 只解析+验证
+python3 scripts/update_niche_data.py  "Niche Floor Plan (xxxxxxxx).pdf"    # 骨灰位
+python3 scripts/update_burial_data.py "Burial Floor Plan (xxxxxxxx).pdf"   # 土葬
+python3 scripts/update_niche_data.py plan.pdf --check                       # 只解析+验证
 ```
 
-它会自己读出图纸日期、验证结果，验证不过就拒绝写入。「同一面墙出现重复编号」= 解析错了
-（会失败）；「同一个编号出现在两面墙」= 图纸自己印重复（只警告，照实保留，别自作主张改）。
+两支都会自己读出图纸日期、跑验证，验证不过就拒绝写入 App.jsx。
+
+### 骨灰位 `update_niche_data.py`
+
+「同一面墙出现重复编号」= 解析错了（会失败）；「同一个编号出现在两面墙」= 图纸自己印重复
+（只警告，照实保留，别自作主张改）。
 
 解析要注意的坑（都踩过）：
 - 一个 Hall 的 R/F/L 三个侧翼是**并排**的，每行会重复出现多个层号 token，
@@ -67,6 +72,30 @@ python3 scripts/update_niche_data.py plan.pdf --check                      # 只
 
 改完资料务必抽样跟旧数据对一遍（A/B/C/D 座当年是完全吻合的，Block N 的总数能跟表格
 自己印的 "TOTAL UNIT" 对上），别解析完就直接信。
+
+### 土葬 `update_burial_data.py`
+
+土葬图纸排版比骨灰位简单太多：一页一个 Zone，一个行号一排位子，没有并排的墙面。
+但还是有几个坑：
+
+- **底色是整段画的**，不是一格一格 —— 一个黄色矩形会盖住连续好几个已售位子。所以判断
+  某一格的状态，是看它的文字落在哪个矩形里，不能指望它有自己的矩形。
+- **行的分隔线也是「填色矩形」**，只是被压到 0.4 点高。不排掉的话，靠近线的位子会读成黑色。
+  脚本用「高/宽 < 2 点就跳过」挡掉。
+- **`*`（Reserve Unit）有两种写法**：多数是独立一个 token 贴在编号左边（间距不到 1 点），
+  但 exporter 偶尔会黏成一个 token（`*DA-13-118`）。两种都要认 —— 当年手工整理就是漏了
+  黏在一起的那两个，DA 的 13 行少了 `DA-13-118` / `DA-13-128`。
+- **行号在左边空白处，且比自己那排编号低 2~3 点**。所以位子归行要用「垂直距离最近的行号」，
+  不能用固定 y 分带。各行还是左右错开的（阶梯状），x 完全不能用来分行。
+- **DB 那一页的第 13 行是另一种产品**（编号前缀 `DBS-`，尺寸和价钱都不同），
+  在 app 里是独立的 zone key `DB13`。靠编号前缀分，不是靠行号。
+- **行的顺序照图纸由上到下排，不是照数字大小排**。Zone B 的 1A/1B 印在 1 上面；
+  Imperial Zone 整个是倒过来印的（由上到下是 3A, 3, 2, 1）。跟着图纸走。
+- 中式编号跳过 4 和 5，用 `A`/`B` 顶上 —— 行号和位子号**两段都会出现** A/B
+  （行 3A/3B/13A/13B，位子 A8/B8/1A8/A08）。正则不能只吃数字。
+
+验证方法跟骨灰位一样：先拿旧图纸跑一遍，看能不能重现 App.jsx 里现有的资料。
+2026-09 那次比对，1310 格里只有上面说的 DA 两格和 Imperial 的行序两处不同，其余全中。
 
 ## 已知缺口（照实记录，不要编造补齐）
 

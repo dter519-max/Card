@@ -26,6 +26,8 @@ surge 没装的话先 `npm install -g surge`。
 | `src-entry.jsx` | React 挂载入口 |
 | `scripts/build.mjs` | 打包：Tailwind → esbuild → 组装成单一 HTML |
 | `scripts/serve.mjs` | 本机预览服务器 |
+| `scripts/update_niche_data.py` | 从骨灰位楼层图 PDF 重建库存资料 |
+| `scripts/update_burial_data.py` | 从土葬位子图 PDF 重建库存资料 |
 | `alpha-agent-system-fixes.md` | 早期 bug 修复记录 |
 
 > `tailwind.config.js` 扫描的是 `.tailwind-classes.txt`（build 时自动生成），
@@ -38,8 +40,18 @@ surge 没装的话先 `npm install -g surge`。
 **黄色 = 已售，白色 = 空置**）。
 
 资料是**快照，不是实时的** —— 每天都有成交。当前快照日期写在 App 里
-（`NICHE_STATUS_UPDATED` / `BURIAL_STATUS_UPDATED`）。要更新就拿新导出的
-PDF 重新解析后替换 `App.jsx` 里的 `AVAIL_RAW` / `NICHE_STATUS` / `BURIAL_STATUS`。
+（`NICHE_STATUS_UPDATED` / `BURIAL_STATUS_UPDATED`）。
+
+拿到新的导出 PDF 后，用对应的脚本更新，不要手工改 `App.jsx`：
+
+```bash
+pip install pymupdf
+python3 scripts/update_niche_data.py  "Niche Floor Plan (04092026).pdf"    # 骨灰位
+python3 scripts/update_burial_data.py "Burial Floor Plan (04092026).pdf"   # 土葬
+```
+
+两支脚本都会自己读出图纸日期、跑一轮验证，**验证不过就拒绝写入**。加 `--check`
+可以只解析验证、不改档。
 
 已知缺口（照实记录，没有编造）：
 - Block F 地面层（F1/F2/F3）有位置资料但公司没有价格表 → 搜得到，但计算器会显示"无价格"
