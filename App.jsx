@@ -613,6 +613,66 @@ const WING_META = {
 // R and L share a price tier, so the wall a niche sits on maps to a coarser pricing side.
 const WING_TO_SIDE = { R: "RL", L: "RL", F: "F", S: "S", SEC: "SEC" };
 
+// Agents read the printed plans by wall -- "A1L" is Block A, Hall 1, Left wing -- so the
+// search box has to accept that shorthand, not just a bare code. AVAIL_RAW can't answer a
+// wall query: it collapses Right and Left into the single pricing side "RL" and loses which
+// wall a niche is actually on. NICHE_STATUS keeps it, and the two are generated from the
+// same sheet and agree exactly, so the searchable index is built from NICHE_STATUS instead.
+// Source order is sheet order (faces as drawn, levels top-down, cells left to right), so
+// results are never re-sorted -- iterating the index already lists them the way the paper does.
+const [NICHE_AVAIL, NICHE_WALLS] = (() => {
+  const rows = [];
+  const walls = {}; // wall code -> [{ block, hallcode, wing, total, avail }]
+  for (const block of Object.keys(NICHE_STATUS)) {
+    for (const hallcode of Object.keys(NICHE_STATUS[block])) {
+      for (const face of NICHE_STATUS[block][hallcode]) {
+        const wing = face.w;
+        // Block L's sections are single free-standing walls with no wing letter, so the
+        // wall code is just the section code ("A6"), matching how the sheet labels them.
+        const wall = hallcode + (wing === "SEC" ? "" : wing);
+        let total = 0;
+        let avail = 0;
+        for (const row of face.rows) {
+          for (const cell of row.cells) {
+            if (!cell) continue; // deliberate blank slot in the wall, not a niche
+            total += 1;
+            if (cell.s !== "A") continue;
+            avail += 1;
+            rows.push({
+              block, hallcode, wing, wall,
+              side: WING_TO_SIDE[wing] || wing,
+              level: row.level,
+              code: cell.c,
+              codeNorm: cell.c.replace(/-/g, "").toUpperCase(),
+            });
+          }
+        }
+        (walls[wall] = walls[wall] || []).push({ block, hallcode, wing, total, avail });
+      }
+    }
+  }
+  return [rows, walls];
+})();
+
+// One box has to take every shape an agent might type: a wall ("A1L"), a whole hall ("A1"),
+// a whole block ("A"), a bare code ("1032"), or a wall and code together ("A1L-10-32").
+// Hyphens are dropped on both sides before comparing because the same idea is printed two
+// ways depending on the block -- Block A writes 1032, Block F writes 09-138.
+function parseNicheQuery(raw) {
+  const s = raw.trim().toUpperCase().replace(/\s+/g, "");
+  if (!s) return null;
+  const m = s.match(/^([A-Z])(\d{1,2})([RFLS])?[-·.]?(.*)$/);
+  if (m) {
+    const [, letter, num, wing, rest] = m;
+    return { blockOnly: "", hallcode: letter + num, wing: wing || "", code: rest.replace(/-/g, "") };
+  }
+  if (/^[A-Z]$/.test(s)) return { blockOnly: s, hallcode: "", wing: "", code: "" };
+  return { blockOnly: "", hallcode: "", wing: "", code: s.replace(/-/g, "") };
+}
+
+// A whole block can be thousands of rows; the true count is still reported above the list.
+const RESULT_CAP = 200;
+
 function FaceGrid({ face, block, hallcode, qLower, go }) {
   const meta = WING_META[face.w] || { label: face.w, hint: "" };
   const side = WING_TO_SIDE[face.w] || face.w;
@@ -768,13 +828,43 @@ function SearchScreen({ go }) {
   const [blockFilter, setBlockFilter] = useState("");
   const [selected, setSelected] = useState([]); // multi-select for combined quotation
 
-  const results = useMemo(() => {
-    if (!q.trim()) return [];
-    const s = q.trim().toLowerCase();
-    return AVAIL.filter((r) => (!blockFilter || r.block === blockFilter) && r.code.toLowerCase().includes(s)).slice(0, 60);
+  const search = useMemo(() => {
+    const parsed = parseNicheQuery(q);
+    if (!parsed || (!parsed.blockOnly && !parsed.hallcode && !parsed.code)) return null;
+
+    const matched = NICHE_AVAIL.filter((r) => {
+      if (blockFilter && r.block !== blockFilter) return false;
+      if (parsed.blockOnly) return r.block === parsed.blockOnly;
+      if (parsed.hallcode && r.hallcode !== parsed.hallcode) return false;
+      if (parsed.wing && r.wing !== parsed.wing) return false;
+      if (parsed.code && !r.codeNorm.includes(parsed.code)) return false;
+      return true;
+    });
+
+    // An empty list can mean two very different things -- the wall isn't in the data, or the
+    // wall is real and every niche on it is taken. The second is the answer an agent needs,
+    // so look the wall up separately instead of showing one vague "not found" for both.
+    let soldOutWall = null;
+    if (!matched.length && parsed.hallcode && !parsed.code) {
+      const wall = parsed.hallcode + parsed.wing;
+      const entries = (NICHE_WALLS[wall] || []).filter((e) => !blockFilter || e.block === blockFilter);
+      if (entries.length) soldOutWall = { wall, total: entries.reduce((a, e) => a + e.total, 0) };
+    }
+
+    // The index is in sheet order, so walls are already contiguous -- group by walking it.
+    const shown = matched.slice(0, RESULT_CAP);
+    const groups = [];
+    for (const r of shown) {
+      const last = groups[groups.length - 1];
+      if (last && last.block === r.block && last.wall === r.wall) last.items.push(r);
+      else groups.push({ block: r.block, wall: r.wall, wing: r.wing, items: [r] });
+    }
+    return { parsed, total: matched.length, groups, soldOutWall };
   }, [q, blockFilter]);
 
-  const keyOf = (r) => `${r.block}-${r.hallcode}-${r.side}-${r.level}-${r.code}`;
+  const results = search ? search.groups.flatMap((g) => g.items) : [];
+
+  const keyOf = (r) => `${r.block}-${r.hallcode}-${r.wing || r.side}-${r.level}-${r.code}`;
   const isSelected = (r) => selected.some((s) => keyOf(s) === keyOf(r));
   const toggleSelect = (r) => {
     setSelected((prev) => (isSelected(r) ? prev.filter((s) => keyOf(s) !== keyOf(r)) : [...prev, r]));
@@ -829,51 +919,91 @@ function SearchScreen({ go }) {
     <div className="px-4 pt-4 pb-28">
       {typeToggle}
       {nicheViewToggle}
-      <div className="flex items-center gap-1.5 mb-3 text-xs" style={{ color: COLOR.inkSoft, fontFamily: FONT_BODY }}>
-        <Info size={13} /> 只列空置(available)福位 — 已售的不会出现在这里
+      <div className="flex items-start gap-1.5 mb-3 text-xs" style={{ color: COLOR.inkSoft, fontFamily: FONT_BODY, lineHeight: 1.6 }}>
+        <Info size={13} className="flex-shrink-0" style={{ marginTop: 2 }} />
+        <span>
+          只列空置(available)福位 — 已售的不会出现在这里。
+          可以整面墙查:打 <b style={{ color: COLOR.ink }}>A1L</b> 就列出 A1 左面墙全部空置的,
+          打 <b style={{ color: COLOR.ink }}>A1</b> 是整个 Hall,
+          <b style={{ color: COLOR.ink }}>A1L-1032</b> 或 <b style={{ color: COLOR.ink }}>1032</b> 是查单一编号。
+        </span>
       </div>
       <div className="flex gap-2 mb-3">
-        <TextInput placeholder="输入福位编号 e.g. 1032, 09-138" value={q} onChange={(e) => setQ(e.target.value)} />
+        <TextInput placeholder="墙面或编号 e.g. A1L / A1 / A1L-1032 / 1032" value={q} onChange={(e) => setQ(e.target.value)} />
         <Select value={blockFilter} onChange={(e) => setBlockFilter(e.target.value)} style={{ width: 110 }}>
           <option value="">全部 Block</option>
           {BLOCKS.map((b) => <option key={b} value={b}>{b} 座</option>)}
         </Select>
       </div>
 
-      {results.length > 0 && (
-        <div className="flex items-center gap-1.5 mb-3 text-xs" style={{ color: COLOR.inkSoft, fontFamily: FONT_BODY }}>
-          <Info size={13} /> 点卡片右边的圆圈可以多选,一次过生成组合报价单
+      {search && search.total > 0 && (
+        <div className="mb-3">
+          <div style={{ color: COLOR.green, fontFamily: FONT_BODY, fontSize: 13, fontWeight: 700 }}>
+            找到 {search.total} 个空置
+            {search.total > results.length && (
+              <span style={{ color: COLOR.inkSoft, fontWeight: 500 }}> · 只显示前 {results.length} 个,再打细一点就能缩小范围</span>
+            )}
+          </div>
+          <div className="flex items-center gap-1.5 mt-1 text-xs" style={{ color: COLOR.inkSoft, fontFamily: FONT_BODY }}>
+            <Info size={13} /> 点卡片右边的圆圈可以多选,一次过生成组合报价单
+          </div>
         </div>
       )}
 
-      {q.trim() && results.length === 0 && (
-        <p style={{ color: COLOR.inkSoft, fontFamily: FONT_BODY, fontSize: 13 }}>
-          没有找到空置福位 — 可能已售出,或编号不在资料库里。请跟主管确认。
+      {search && search.total === 0 && (
+        <p style={{ color: COLOR.inkSoft, fontFamily: FONT_BODY, fontSize: 13, lineHeight: 1.7 }}>
+          {search.soldOutWall ? (
+            <>
+              <b style={{ color: COLOR.ink }}>{search.soldOutWall.wall}</b> 这面墙在资料库里有
+              {search.soldOutWall.total} 格,但目前<b style={{ color: COLOR.ink }}>没有一格是空置的</b>(全部已售/保留)。
+            </>
+          ) : (
+            <>没有找到空置福位 — 可能已售出,或编号/墙面不在资料库里。请跟主管确认。</>
+          )}
         </p>
       )}
 
-      <div className="space-y-2">
-        {results.map((r, i) => {
-          const sel = isSelected(r);
-          return (
-            <Card key={i} style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <div className="flex-1" onClick={() => go("calculator", r, null, "niche")} style={{ cursor: "pointer" }}>
-                <span style={{ fontFamily: FONT_DISPLAY, color: COLOR.ink, fontSize: 15, fontWeight: 700 }}>{r.block} 座 · {r.code}</span>
-                <div style={{ color: COLOR.inkSoft, fontSize: 12, fontFamily: FONT_BODY, marginTop: 2 }}>
-                  {r.hallcode ? `Hall ${r.hallcode}` : "位置未精确标注"} · Level {r.level}
-                </div>
+      <div className="space-y-4">
+        {(search ? search.groups : []).map((g) => (
+          <div key={`${g.block}-${g.wall}`}>
+            <div className="flex items-baseline justify-between gap-2 mb-1.5 px-0.5">
+              <div className="flex items-baseline gap-2" style={{ minWidth: 0 }}>
+                <span style={{ color: COLOR.ink, fontFamily: FONT_BODY, fontWeight: 700, fontSize: 13 }}>
+                  {g.block} 座 · {g.wall}
+                </span>
+                <span style={{ color: COLOR.inkSoft, fontFamily: FONT_BODY, fontSize: 11 }}>
+                  {(WING_META[g.wing] || { label: "" }).label}
+                </span>
               </div>
-              <StatusPill status="available" />
-              <button
-                onClick={() => toggleSelect(r)}
-                className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0"
-                style={{ border: `1.5px solid ${sel ? COLOR.gold : COLOR.line}`, background: sel ? COLOR.gold : "transparent" }}
-              >
-                {sel && <CheckCircle2 size={15} color="#161512" />}
-              </button>
-            </Card>
-          );
-        })}
+              <span className="flex-shrink-0" style={{ color: COLOR.green, fontFamily: FONT_BODY, fontSize: 11, fontWeight: 700 }}>
+                空 {g.items.length}
+              </span>
+            </div>
+            <div className="space-y-2">
+              {g.items.map((r) => {
+                const sel = isSelected(r);
+                return (
+                  <Card key={keyOf(r)} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <div className="flex-1" onClick={() => go("calculator", r, null, "niche")} style={{ cursor: "pointer" }}>
+                      <span style={{ fontFamily: FONT_DISPLAY, color: COLOR.ink, fontSize: 15, fontWeight: 700 }}>{r.wall}-{r.code}</span>
+                      <div style={{ color: COLOR.inkSoft, fontSize: 12, fontFamily: FONT_BODY, marginTop: 2 }}>
+                        {r.block} 座 · Hall {r.hallcode} · Level {r.level}
+                      </div>
+                    </div>
+                    <StatusPill status="available" />
+                    <button
+                      onClick={() => toggleSelect(r)}
+                      className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0"
+                      style={{ border: `1.5px solid ${sel ? COLOR.gold : COLOR.line}`, background: sel ? COLOR.gold : "transparent" }}
+                    >
+                      {sel && <CheckCircle2 size={15} color="#161512" />}
+                    </button>
+                  </Card>
+                );
+              })}
+            </div>
+          </div>
+        ))}
       </div>
       {results.length > 0 && (
         <p className="mt-3 text-xs" style={{ color: COLOR.inkSoft, fontFamily: FONT_BODY }}>
