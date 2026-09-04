@@ -167,9 +167,20 @@ def parse(pdf_path):
                 if last_level_y is not None and w[1] - last_level_y > 5:
                     anchors = []
                 last_level_y = w[1]
+                # Single/double is a property of the COLUMN, not of the cell: the sheets
+                # print one "S" or "D" per column on this same header row, right of the
+                # word LEVEL. Collect them here, stopping at the next wall's LEVEL, and
+                # each cell below takes the marker nearest its own x.
+                units, j = [], i + 1
+                while j < n and rowband(ws[j]) == rowband(w):
+                    if ws[j][4] == "LEVEL":
+                        break
+                    if ws[j][4] in ("S", "D"):
+                        units.append((ws[j][0], ws[j][4]))
+                    j += 1
                 if pending:
                     a = pending.pop(0)
-                    anchors.append((w[0], a["hallcode"], WING_TO_SIDE[a["wing"]], a["wing"]))
+                    anchors.append((w[0], a["hallcode"], WING_TO_SIDE[a["wing"]], a["wing"], units))
                 i += 1
                 continue
 
@@ -186,11 +197,15 @@ def parse(pdf_path):
                         collected.append(w2)
                     j += 1
                 if collected:
-                    hallcode, side, wing = min(anchors, key=lambda a: abs(a[0] - x0))[1:]
+                    anchor = min(anchors, key=lambda a: abs(a[0] - x0))
+                    hallcode, side, wing, units = anchor[1:]
                     for cw in collected:
+                        unit = None
+                        if units:
+                            unit = min(units, key=lambda u: abs(u[0] - cw[0]))[1]
                         out.append({
                             "block": block, "hallcode": hallcode, "side": side, "wing": wing,
-                            "level": level, "code": cw[4],
+                            "level": level, "code": cw[4], "unit": unit,
                             "status": classify(cell_fill(drawings, cw[:4])),
                             "page": pno, "x": round(cw[0], 1), "y": round(cw[1], 1),
                         })
@@ -233,7 +248,10 @@ def build_faces(rows):
                 idx = round((c["x"] - minx) / pitch)
                 if slots[idx] is not None:
                     collisions += 1
-                slots[idx] = {"c": c["code"], "s": STATUS_LETTER[c["status"]]}
+                cell = {"c": c["code"], "s": STATUS_LETTER[c["status"]]}
+                if c.get("unit"):
+                    cell["u"] = c["unit"]      # "S" single / "D" double, from the sheet
+                slots[idx] = cell
             out_rows.append({"level": lv, "cells": slots})
 
         tree.setdefault(block, {}).setdefault(hall, []).append({"w": wing, "rows": out_rows})
@@ -256,7 +274,7 @@ def build_avail(rows):
         return (-int(m.group(1)), m.group(2)) if m else (999, lv)
     a = sorted((r for r in rows if r["status"] == "available"),
                key=lambda r: (r["block"], r["hallcode"], lk(r["level"]), r["code"]))
-    return [[r["block"], r["hallcode"], r["side"], r["level"], r["code"]] for r in a]
+    return [[r["block"], r["hallcode"], r["side"], r["level"], r["code"], r.get("unit") or ""] for r in a]
 
 
 def validate(rows, faces, collisions):
@@ -272,6 +290,14 @@ def validate(rows, faces, collisions):
         problems.append(f"{collisions} cells collided when snapping to the column grid")
     if not rows:
         problems.append("no cells parsed at all")
+
+    # Single/double drives which price column applies, so a cell that lost its marker
+    # would quietly quote the wrong one. Every wall on these sheets carries markers;
+    # if a future sheet drops them, say so rather than shipping half a column blank.
+    no_unit = [r for r in rows if not r.get("unit")]
+    if no_unit:
+        by_wall = collections.Counter(f"{r['block']}/{r['hallcode']}{r['wing']}" for r in no_unit)
+        warnings.append(f"{len(no_unit)} cell(s) have no S/D marker on the sheet: {dict(by_wall)}")
 
     for b in faces:
         for h in faces[b]:
@@ -325,7 +351,10 @@ def main():
 
     by_block = collections.Counter(r["block"] for r in rows)
     print(f"sheet date : {updated or '(not found)'}")
+    units = collections.Counter(r.get("unit") for r in rows)
     print(f"cells      : {len(rows)}   available: {len(avail)}")
+    print(f"unit type  : 双 D {units['D']}   单 S {units['S']}"
+          + (f"   无标记 {units[None]}" if units[None] else ""))
     print(f"blocks     : {dict(sorted(by_block.items()))}")
     blanks = sum(1 for b in faces for h in faces[b] for f in faces[b][h]
                  for r in f["rows"] for c in r["cells"] if c is None)
