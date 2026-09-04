@@ -1,3 +1,5 @@
 node_modules/
 dist/
 .tailwind-classes.txt
+__pycache__/
+*.pyc
