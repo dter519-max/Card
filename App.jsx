@@ -112,6 +112,32 @@ const HALL_GROUP = {
 };
 const SIDE_LABEL = { RL: "Right/Left", F: "Frontage", SEC: "Section", S: "Side" };
 
+// Why a price is missing matters to whoever is standing in front of a customer, and the
+// three reasons need different actions. Saying "this block has no price list" when the
+// block plainly does -- only this one level is absent -- sends an agent looking for the
+// wrong thing.
+function explainMissingPrice(block, hallcode, side, level) {
+  const group = HALL_GROUP[block]?.[hallcode];
+  if (!group) {
+    return `公司还没提供 Block ${block} ${hallcode} 的价目表(有位置资料,没有价格)— 请跟主管拿这一区的报价。`;
+  }
+  const table = PRICING[block]?.find((t) => t.hall === group && t.side === SIDE_LABEL[side]);
+  if (!table) {
+    return `Block ${block} ${hallcode} 的价目表里没有「${SIDE_LABEL[side]}」这一面 — 请跟主管确认。`;
+  }
+  // Blocks E and N are the odd pair: their floor plans label the tier between 6 and 3A as
+  // "3B" (the Chinese numbering that skips 4 and 5), while their price lists still call it
+  // "5". Every other block agrees with itself. The two are almost certainly the same tier,
+  // but that is a pricing call for the office, so say so rather than quietly charging one
+  // for the other.
+  const priceLevels = table.rows.map((r) => String(r[0]));
+  if (level === "3B" && priceLevels.includes("5")) {
+    return `Block ${block} 的价目表里没有 3B 层 — 它在同样的位置写的是「Level 5」,`
+      + `很可能是同一层的两种叫法,但价钱要跟主管确认过才好报。`;
+  }
+  return `Block ${block} ${hallcode} 的价目表里没有第 ${level} 层(表上只有 ${priceLevels.join("、")})— 请跟主管确认。`;
+}
+
 function lookupPrice(block, hallcode, side, level) {
   const group = HALL_GROUP[block]?.[hallcode];
   if (!group) return null;
@@ -1487,8 +1513,8 @@ function SingleQuoteView({ prefill }) {
       </div>
 
       {hallcode && side && level && !priceInfo && (
-        <p style={{ color: COLOR.orange, fontFamily: FONT_BODY, fontSize: 13 }}>
-          价格资料库里没有这个组合(Block {block} {hallcode} 目前没有价格表)— 请跟主管确认最新价格。
+        <p style={{ color: COLOR.orange, fontFamily: FONT_BODY, fontSize: 13, lineHeight: 1.7 }}>
+          {explainMissingPrice(block, hallcode, side, level)}
         </p>
       )}
 
