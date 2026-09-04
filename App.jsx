@@ -945,6 +945,20 @@ function FaceGrid({ face, block, hallcode, qLower, go }) {
     return c;
   }, [face]);
 
+  // One D/S per column. It is a column property on the sheets, but a column can have a
+  // blank slot in some rows, so take the first row that actually has a cell there.
+  const unitHeader = useMemo(() => {
+    const width = Math.max(...face.rows.map((r) => r.cells.length), 0);
+    const out = Array(width).fill("");
+    for (let col = 0; col < width; col += 1) {
+      for (const r of face.rows) {
+        const cell = r.cells[col];
+        if (cell && cell.u) { out[col] = cell.u; break; }
+      }
+    }
+    return out.some(Boolean) ? out : null;
+  }, [face]);
+
   return (
     <div className="mb-3">
       <div className="flex items-baseline justify-between gap-2 mb-1.5 px-0.5">
@@ -964,6 +978,29 @@ function FaceGrid({ face, block, hallcode, qLower, go }) {
 
       <div className="rounded-xl" style={{ border: `1px solid ${COLOR.line}`, overflowX: "auto" }}>
         <div style={{ width: "max-content" }}>
+          {/* The sheets head every wall with a D/S row -- one per column, since single and
+              double is a property of the whole column. Same place here, so the screen reads
+              like the paper an agent already knows. */}
+          {unitHeader && (
+            <div className="flex items-stretch">
+              <div className="flex items-center justify-center flex-shrink-0"
+                style={{ width: 30, background: COLOR.panel2, color: COLOR.inkSoft, fontFamily: FONT_BODY, fontSize: 9, fontWeight: 700, position: "sticky", left: 0, zIndex: 1 }}>
+                单双
+              </div>
+              {unitHeader.map((u, col) => (
+                <div key={`u-${col}`} className="flex items-center justify-center flex-shrink-0"
+                  title={u === "D" ? "这一栏是双人位 Double" : u === "S" ? "这一栏是单人位 Single" : ""}
+                  style={{
+                    width: 52, padding: "3px 2px", background: COLOR.panel2,
+                    color: u === "D" ? COLOR.gold : u === "S" ? COLOR.ink : COLOR.inkSoft,
+                    fontFamily: FONT_BODY, fontSize: 10.5, fontWeight: 800,
+                    borderLeft: `1px solid ${COLOR.line}`,
+                  }}>
+                  {u || ""}
+                </div>
+              ))}
+            </div>
+          )}
           {face.rows.map((r) => (
             <div key={r.level} className="flex items-stretch" style={{ borderTop: `1px solid ${COLOR.line}` }}>
               <div className="flex items-center justify-center flex-shrink-0"
@@ -975,9 +1012,17 @@ function FaceGrid({ face, block, hallcode, qLower, go }) {
                 // gap so the two halves of a wall stay aligned. Keep the space (and skip the
                 // cell border) so every column below it stays where the paper puts it.
                 if (!cell) {
+                  // Painting the gap in the page colour reads as a hole punched in the wall.
+                  // Hatch it in the grid's own neutral so it looks like what it is: a slot the
+                  // sheet leaves empty to keep the two halves aligned.
                   return (
                     <div key={`gap-${col}`} className="flex-shrink-0"
-                      style={{ width: 52, background: COLOR.bg }} aria-hidden="true" />
+                      title="这里图纸上就没有格子(用来对齐两边的空位)"
+                      style={{
+                        width: 52,
+                        borderLeft: `1px solid ${COLOR.line}`,
+                        background: `repeating-linear-gradient(45deg, #3A3B40, #3A3B40 3px, ${COLOR.panel2} 3px, ${COLOR.panel2} 7px)`,
+                      }} />
                   );
                 }
                 const m = NICHE_STATUS_META[cell.s] || NICHE_STATUS_META.X;
@@ -988,29 +1033,20 @@ function FaceGrid({ face, block, hallcode, qLower, go }) {
                   borderLeft: `1px solid ${COLOR.line}`, opacity: dim ? 0.2 : 1,
                   position: "relative",
                 };
-                // D / S rides in the cell's corner rather than beside the code: the sheets
-                // mark it per column, and an agent scanning a wall wants to see at a glance
-                // which columns are double without the code getting harder to read.
-                const unitTag = cell.u ? (
-                  <span aria-hidden="true" style={{
-                    position: "absolute", top: 1, right: 2, fontSize: 7.5, fontWeight: 800,
-                    opacity: 0.62, letterSpacing: 0,
-                  }}>{cell.u}</span>
-                ) : null;
+                // Single/double is shown once per column in the header row above, exactly
+                // where the sheets put it, so the code stays the only thing inside the cell.
                 const unitWord = cell.u === "D" ? "双人位 Double" : cell.u === "S" ? "单人位 Single" : "";
                 if (cell.s === "A") {
                   return (
                     <button key={cell.c} title={`${cell.c} · ${meta.label}${unitWord ? " · " + unitWord : ""} · 点击去计算器`}
                       onClick={() => go("calculator", { block, hallcode, side, level: r.level, code: cell.c, unit: cell.u || "" }, null, "niche")}
                       className="flex items-center justify-center flex-shrink-0" style={{ ...cellStyle, cursor: "pointer" }}>
-                      {unitTag}
                       {cell.c}
                     </button>
                   );
                 }
                 return (
                   <div key={cell.c} title={`${cell.c} · ${m.label}${unitWord ? " · " + unitWord : ""}`} className="flex items-center justify-center flex-shrink-0" style={cellStyle}>
-                    {unitTag}
                     {cell.c}
                   </div>
                 );
@@ -1087,9 +1123,9 @@ function NicheAvailabilityView({ go }) {
         每一面墙分开显示,跟公司平面图一样:左边是层数(10 在上、1 在下),横向是这面墙由左到右的位置。
         点空置格子直接带去计算器算这一格的价钱。「分类格」「非售卖」是另一种颜色标记盖住了空/售状态,遇到要另外确认。
         <br />
-        每一格右上角的 <b style={{ color: COLOR.ink }}>D</b> = 双人位 Double、
-        <b style={{ color: COLOR.ink }}>S</b> = 单人位 Single,跟图纸上标的一样(整栏同一种)。
-        点进计算器会自动帮你选好,不用再猜。
+        最上面那一行的 <b style={{ color: COLOR.ink }}>D</b> = 双人位 Double、
+        <b style={{ color: COLOR.ink }}>S</b> = 单人位 Single —— 跟图纸一样一栏一个(整栏同一种)。
+        点进计算器会自动帮你选好,不用再猜。斜纹格是图纸上本来就没有的空位,用来对齐两边,不是漏掉。
       </div>
     </div>
   );
@@ -1766,7 +1802,7 @@ function HomeScreen({ go }) {
         <FeatureCard icon={MapPin} label="查福位 Find a Lot" desc={`目前空置 ${availCount} 个`} onClick={() => go("search")} big />
         <FeatureCard icon={Calculator} label="价格计算 Calculator" desc="骨灰位 + 土葬 · 原价、回扣、头期、供期" onClick={() => go("calculator")} big />
         <FeatureCard icon={Tag} label="促销 Promotions" desc="现金回扣详情" onClick={() => go("promotions")} />
-        <FeatureCard icon={Sparkles} label="AI 回复助手" desc="协助回答客户" onClick={() => go("ai")} />
+        <FeatureCard icon={Sparkles} label="查询助手 Assistant" desc="用讲话的方式问还有什么空置" onClick={() => go("ai")} />
         <FeatureCard icon={BookOpen} label="产品资料" desc="常见问题" onClick={() => go("knowledge")} />
         <FeatureCard icon={Users} label="竞品比较" desc="对比竞争对手" onClick={() => go("competitor")} />
       </div>
@@ -1836,58 +1872,279 @@ function PromotionsScreen() {
   );
 }
 
-function AIReplyScreen() {
-  const [msg, setMsg] = useState("");
-  const [tone, setTone] = useState("Professional");
-  const [loading, setLoading] = useState(false);
-  const [reply, setReply] = useState("");
-  const [error, setError] = useState("");
+// ============================ LOT ASSISTANT =====================================
+// Answers plain questions about what is still available, straight out of the same
+// data the rest of the app uses. Deliberately NOT a language model: every number an
+// agent repeats to a customer is a price, and a model that invents a plausible-looking
+// niche or figure would be worse than useless here. This looks things up instead --
+// instant, works offline, and it can only say what the sheets say.
+//
+// Chinese sales numbering skips 4 and 5, so a level can be "3A"/"3B" as well as a digit,
+// and agents say 层 / 楼 / 行 interchangeably for the same thing.
+const CN_NUM = { 一: 1, 二: 2, 三: 3, 四: 4, 五: 5, 六: 6, 七: 7, 八: 8, 九: 9, 十: 10 };
 
-  const ask = async () => {
-    if (!msg.trim()) return;
-    setLoading(true); setError(""); setReply("");
-    const context = `You are the sales assistant for 甲板山庄 Jiangnan Villa (a Malaysian columbarium/memorial park), helping agents answer customer questions about niches (福位).
-Use ONLY the following official facts. Never invent prices, availability, or terms not given here. If unsure, say "请跟主管确认" (please check with your supervisor).
-Respond in natural, warm Malaysian sales language, bilingual (English + Chinese), in a ${tone} tone.
+function parseAssistantQuery(raw) {
+  const s = (raw || "").trim();
+  if (!s) return null;
+  const up = s.toUpperCase();
+  const q = { plotType: "niche", blocks: [], hall: "", wing: "", levels: [], unit: "", maxPrice: null, zone: "", row: "" };
 
-CURRENT PROMOTION: ${CURRENT_PROMO.name}, ${CURRENT_PROMO.start} to ${CURRENT_PROMO.end}. Niche cash rebate applies to Blocks A,B,C,D,E,F,G,K,L only (not M,N,P). Standard down payment is always 40%. Tenure: <RM10k=18mo, RM10k-20k=24mo, >RM20k=36mo.
-Rebate tiers (Double/Single): >RM15k = RM1000/RM500, >RM25k = RM1500/RM500, >RM35k = RM2000/none.
-There are ${AVAIL.length} available niches across Blocks A-P currently in the system.
+  if (/土葬|墓地|福地|BURIAL|PLOT/i.test(s)) q.plotType = "burial";
 
-Format with headers:
-CUSTOMER INTENT 客户意图:
-RECOMMENDED RESPONSE 建议回复:
-FOLLOW-UP QUESTION 追问:
-CLOSING DIRECTION 下一步:`;
-    try {
-      const response = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: 1000, messages: [{ role: "user", content: `${context}\n\n---\n\nCustomer says: "${msg}"` }] }),
-      });
-      const data = await response.json();
-      setReply((data.content || []).map((b) => b.text || "").join("\n") || "No response.");
-    } catch (e) { setError("无法连接 AI 助手,请稍后重试。"); }
-    setLoading(false);
+  if (q.plotType === "burial") {
+    const mz = up.match(/\b(DB13|DBS|CA|CB|DA|DB|IZ|B)\b/);
+    if (mz) q.zone = BURIAL_ZONE_ALIASES[mz[1]] || mz[1];
+    const mr = s.match(/(?:第\s*)?([0-9]{1,2}[AB]?)\s*(?:行|排)/i) || up.match(/\bROW\s*([0-9]{1,2}[AB]?)/);
+    if (mr) q.row = mr[1].toUpperCase();
+    return q;
+  }
+
+  // "A1L" / "A1" / "L-A6" — reuse the search box's own grammar so both boxes agree.
+  const mWall = up.match(/\b([A-Z])[-·. ]?([A-Z]?\d{1,2})([RFLS])?\b/);
+  if (mWall && NICHE_STATUS[mWall[1]] && /^[A-Z]\d/.test(mWall[2] + "0")) { /* handled below */ }
+  const wallHit = up.match(/\b([A-Z]\d{1,2})([RFLS])?\b/);
+  if (wallHit && Object.values(NICHE_STATUS).some((halls) => halls[wallHit[1]])) {
+    q.hall = wallHit[1];
+    if (wallHit[2]) q.wing = wallHit[2];
+  }
+
+  // Block: "Block L", "L 座", "L座"
+  for (const m of up.matchAll(/\bBLOCK\s*([A-Z])\b/g)) if (NICHE_STATUS[m[1]]) q.blocks.push(m[1]);
+  for (const m of s.matchAll(/([A-Za-z])\s*座/g)) {
+    const b = m[1].toUpperCase();
+    if (NICHE_STATUS[b] && !q.blocks.includes(b)) q.blocks.push(b);
+  }
+
+  // Level: "第3行", "3楼", "3层", "level 3", "3A"
+  const lv = new Set();
+  for (const m of s.matchAll(/(?:第\s*)?([0-9]{1,2}|[一二三四五六七八九十])\s*(?:楼|层|樓|層|行|排)/g)) {
+    lv.add(String(CN_NUM[m[1]] || m[1]));
+  }
+  for (const m of up.matchAll(/\bLEVEL\s*([0-9]{1,2}|3A|3B)\b/g)) lv.add(m[1]);
+  for (const m of up.matchAll(/\b(3A|3B)\b/g)) lv.add(m[1]);
+  q.levels = [...lv];
+
+  if (/单人|單人|单位|單位|\bSINGLE\b/i.test(s)) q.unit = "S";
+  if (/双人|雙人|双位|雙位|\bDOUBLE\b/i.test(s)) q.unit = "D";
+
+  // Budget: "3万以下", "RM30000 以内", "低于 25000"
+  const mWan = s.match(/([0-9]+(?:\.[0-9]+)?)\s*万\s*(?:以[下内]|以內|内|以下|左右)?/);
+  if (mWan) q.maxPrice = Math.round(parseFloat(mWan[1]) * 10000);
+  const mRm = s.match(/(?:RM|低于|低於|以下|不超过|不超過|少过|少於)\s*([0-9][0-9,]{3,})/i);
+  if (mRm) q.maxPrice = parseInt(mRm[1].replace(/,/g, ""), 10);
+
+  const empty = !q.blocks.length && !q.hall && !q.levels.length && !q.unit && q.maxPrice == null;
+  return empty ? null : q;
+}
+
+// The promo price for a niche, using the unit type the sheet actually gives it.
+function nicheAskingPrice(r) {
+  const p = lookupPrice(r.block, r.hallcode, r.side, r.level);
+  if (!p) return null;
+  return r.unit === "S" ? p.singlePromo : p.doublePromo;
+}
+
+function matchNiches(q) {
+  return NICHE_AVAIL.filter((r) => {
+    if (q.blocks.length && !q.blocks.includes(r.block)) return false;
+    if (q.hall && r.hallcode !== q.hall) return false;
+    if (q.wing && r.wing !== q.wing) return false;
+    if (q.levels.length && !q.levels.includes(r.level)) return false;
+    if (q.unit && r.unit !== q.unit) return false;
+    if (q.maxPrice != null) {
+      const p = nicheAskingPrice(r);
+      if (p == null || p > q.maxPrice) return false;
+    }
+    return true;
+  });
+}
+
+// When the exact ask has nothing, offer the closest thing rather than a dead end --
+// loosen ONE constraint at a time, nearest first, and say plainly what was loosened.
+function nicheFallbacks(q) {
+  const out = [];
+  const push = (label, relaxed) => {
+    const hits = matchNiches(relaxed);
+    if (hits.length) out.push({ label, count: hits.length, items: hits });
   };
+  if (q.levels.length) push("同一个座/Hall,其他楼层", { ...q, levels: [] });
+  if (q.unit) push(q.unit === "S" ? "同样条件,但是双人位" : "同样条件,但是单人位", { ...q, unit: q.unit === "S" ? "D" : "S" });
+  if (q.hall) push("同一个座,其他 Hall", { ...q, hall: "", wing: "" });
+  if (q.blocks.length && (q.levels.length || q.unit)) push("其他座,同样条件", { ...q, blocks: [] });
+  if (q.maxPrice != null) push("放宽预算", { ...q, maxPrice: null });
+  return out.slice(0, 3);
+}
+
+// A named block with nothing left is a specific, known answer ("M 座整个售罄"), not the
+// same thing as a query that merely happened to match nothing -- worth saying outright.
+const NICHE_BLOCK_AVAIL = NICHE_AVAIL.reduce((m, r) => { m[r.block] = (m[r.block] || 0) + 1; return m; }, {});
+function soldOutBlocks(q) {
+  return (q.blocks || []).filter((b) => NICHE_STATUS[b] && !NICHE_BLOCK_AVAIL[b]);
+}
+
+const ASSIST_EXAMPLES = [
+  "Block L 还有第 3 行的吗",
+  "F 座还有单人位吗",
+  "A1L 还有吗",
+  "E 座 3 万以下的",
+  "土葬 Zone B 第 1A 行",
+];
+
+function LotAssistantScreen({ go }) {
+  const [text, setText] = useState("");
+  const [asked, setAsked] = useState("");
+  const [showFallback, setShowFallback] = useState(null);
+
+  const result = useMemo(() => {
+    const q = parseAssistantQuery(asked);
+    if (!q) return null;
+    if (q.plotType === "burial") {
+      const items = BURIAL_AVAIL.filter((r) => (!q.zone || r.zone === q.zone) && (!q.row || r.row === q.row));
+      return { q, items, fallbacks: [] };
+    }
+    const items = matchNiches(q);
+    return {
+      q, items,
+      soldOut: items.length ? [] : soldOutBlocks(q),
+      fallbacks: items.length ? [] : nicheFallbacks(q),
+    };
+  }, [asked]);
+
+  const ask = (t) => { setAsked(t); setShowFallback(null); };
+  const money = (n) => (n == null ? "价格待确认" : "RM" + n.toLocaleString());
+
+  const describe = (q) => {
+    const bits = [];
+    if (q.plotType === "burial") {
+      bits.push(q.zone ? `Zone ${q.zone}` : "土葬");
+      if (q.row) bits.push(`第 ${q.row} 行`);
+      return bits.join(" · ");
+    }
+    if (q.blocks.length) bits.push(q.blocks.map((b) => `${b} 座`).join("/"));
+    if (q.hall) bits.push(q.hall + q.wing);
+    if (q.levels.length) bits.push(`第 ${q.levels.join("/")} 层`);
+    if (q.unit) bits.push(q.unit === "D" ? "双人位" : "单人位");
+    if (q.maxPrice != null) bits.push(`RM${q.maxPrice.toLocaleString()} 以下`);
+    return bits.join(" · ") || "全部";
+  };
+
+  const NicheList = ({ items, cap = 24 }) => (
+    <div className="space-y-2">
+      {items.slice(0, cap).map((r) => (
+        <Card key={`${r.block}-${r.wall}-${r.code}`} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div className="flex-1" onClick={() => go("calculator", r, null, "niche")} style={{ cursor: "pointer" }}>
+            <span style={{ fontFamily: FONT_DISPLAY, color: COLOR.ink, fontSize: 15, fontWeight: 700 }}>{r.wall}-{r.code}</span>
+            <UnitPill unit={r.unit} />
+            <div style={{ color: COLOR.inkSoft, fontSize: 12, fontFamily: FONT_BODY, marginTop: 2 }}>
+              {r.block} 座 · Level {r.level} · {money(nicheAskingPrice(r))}
+            </div>
+          </div>
+          <StatusPill status="available" />
+        </Card>
+      ))}
+      {items.length > cap && (
+        <p className="text-xs px-1" style={{ color: COLOR.inkSoft, fontFamily: FONT_BODY }}>
+          还有 {items.length - cap} 个没列出来 — 问细一点就能缩小范围
+        </p>
+      )}
+    </div>
+  );
 
   return (
     <div className="px-4 pt-4 pb-24">
-      <textarea placeholder='客户说了什么？e.g. "Why so expensive?"' value={msg} onChange={(e) => setMsg(e.target.value)}
-        className="rounded-xl px-3.5 py-2.5 text-sm outline-none w-full mb-3" style={{ background: COLOR.panel2, border: `1px solid ${COLOR.line}`, color: COLOR.ink, fontFamily: FONT_BODY, minHeight: 80 }} />
+      <div className="flex items-start gap-1.5 mb-3 text-xs" style={{ color: COLOR.inkSoft, fontFamily: FONT_BODY, lineHeight: 1.6 }}>
+        <Info size={13} className="flex-shrink-0" style={{ marginTop: 2 }} />
+        <span>
+          问库存用的,答案<b style={{ color: COLOR.ink }}>直接来自公司的图纸和价目表</b>(骨灰位截至 {NICHE_STATUS_UPDATED},
+          土葬截至 {BURIAL_STATUS_UPDATED}),不会自己编价钱。下单前一样要跟主管核实。
+        </span>
+      </div>
+
       <div className="flex gap-2 mb-3">
-        {[["Professional", "专业"], ["Friendly", "亲切"], ["Short WhatsApp", "简短"]].map(([t, label]) => (
-          <button key={t} onClick={() => setTone(t)} className="text-xs px-3 py-1.5 rounded-full"
-            style={{ background: tone === t ? COLOR.gold : COLOR.panel2, color: tone === t ? "#161512" : COLOR.inkSoft, fontFamily: FONT_BODY, fontWeight: 600 }}>
-            {t} {label}
+        <TextInput placeholder="例如:Block L 还有第 3 行的吗" value={text}
+          onChange={(e) => setText(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter") ask(text); }} />
+        <Btn onClick={() => ask(text)} disabled={!text.trim()} style={{ flexShrink: 0 }}>
+          <Sparkles size={15} /> 问
+        </Btn>
+      </div>
+
+      <div className="flex gap-2 mb-4 flex-wrap">
+        {ASSIST_EXAMPLES.map((ex) => (
+          <button key={ex} onClick={() => { setText(ex); ask(ex); }}
+            className="text-[11px] px-2.5 py-1 rounded-full"
+            style={{ background: COLOR.panel2, color: COLOR.inkSoft, border: `1px solid ${COLOR.line}`, fontFamily: FONT_BODY }}>
+            {ex}
           </button>
         ))}
       </div>
-      <Btn onClick={ask} disabled={loading || !msg.trim()} className="w-full">
-        {loading ? <Loader2 size={15} className="animate-spin" /> : <Sparkles size={15} />} {loading ? "生成中..." : "获取建议回复"}
-      </Btn>
-      {error && <p className="mt-3 text-sm" style={{ color: COLOR.red, fontFamily: FONT_BODY }}>{error}</p>}
-      {reply && <Card style={{ marginTop: 14, whiteSpace: "pre-wrap" }}><p style={{ color: COLOR.ink, fontFamily: FONT_BODY, fontSize: 13.5, lineHeight: 1.7 }}>{reply}</p></Card>}
+
+      {asked && !result && (
+        <Card><p style={{ color: COLOR.inkSoft, fontFamily: FONT_BODY, fontSize: 13, lineHeight: 1.7 }}>
+          这个问题我看不懂 — 我只会查库存。试试讲清楚座别、Hall、楼层或预算,例如
+          「Block L 还有第 3 行的吗」「F 座还有单人位吗」「E 座 3 万以下的」。
+        </p></Card>
+      )}
+
+      {result && result.items.length > 0 && (
+        <>
+          <div className="mb-2" style={{ color: COLOR.green, fontFamily: FONT_BODY, fontSize: 13.5, fontWeight: 700 }}>
+            {describe(result.q)} — 还有 {result.items.length} 个空置
+          </div>
+          {result.q.plotType === "burial" ? (
+            <div className="space-y-2">
+              {result.items.slice(0, 24).map((r) => (
+                <Card key={r.code} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <div className="flex-1" onClick={() => go("calculator", { zoneKey: r.zone, code: r.code }, null, "burial")} style={{ cursor: "pointer" }}>
+                    <span style={{ fontFamily: FONT_DISPLAY, color: COLOR.ink, fontSize: 15, fontWeight: 700 }}>{r.code}</span>
+                    <div style={{ color: COLOR.inkSoft, fontSize: 12, fontFamily: FONT_BODY, marginTop: 2 }}>
+                      {BURIAL_ZONES.find((z) => z.key === r.zone)?.label || r.zone} · 第 {r.row} 行
+                    </div>
+                  </div>
+                  <StatusPill status="available" />
+                </Card>
+              ))}
+            </div>
+          ) : <NicheList items={result.items} />}
+        </>
+      )}
+
+      {result && result.items.length === 0 && (
+        <>
+          <Card style={{ marginBottom: 10 }}>
+            <p style={{ color: COLOR.ink, fontFamily: FONT_BODY, fontSize: 13.5, lineHeight: 1.7 }}>
+              <b>{describe(result.q)} — 目前没有空置的。</b>
+            </p>
+            {result.soldOut && result.soldOut.length > 0 && (
+              <p style={{ color: COLOR.inkSoft, fontFamily: FONT_BODY, fontSize: 12.5, marginTop: 6, lineHeight: 1.7 }}>
+                {result.soldOut.map((b) => `${b} 座`).join("、")}
+                <b style={{ color: COLOR.ink }}> 整个座已经全部售罄</b>
+                (图纸上的每一格都是已售/保留),不是刚好这个条件没有。
+              </p>
+            )}
+            {result.fallbacks.length > 0 && (
+              <p style={{ color: COLOR.inkSoft, fontFamily: FONT_BODY, fontSize: 12.5, marginTop: 6, lineHeight: 1.7 }}>
+                不过附近还有,要看吗？
+              </p>
+            )}
+          </Card>
+          <div className="space-y-2">
+            {result.fallbacks.map((fb) => (
+              <div key={fb.label}>
+                <button onClick={() => setShowFallback(showFallback === fb.label ? null : fb.label)}
+                  className="w-full rounded-xl px-3.5 py-2.5 text-left flex items-center justify-between"
+                  style={{ background: COLOR.panel2, border: `1px solid ${COLOR.line}` }}>
+                  <span style={{ color: COLOR.ink, fontFamily: FONT_BODY, fontSize: 13 }}>{fb.label}</span>
+                  <span style={{ color: COLOR.gold, fontFamily: FONT_BODY, fontSize: 12, fontWeight: 700 }}>
+                    {fb.count} 个 {showFallback === fb.label ? "▲" : "▼"}
+                  </span>
+                </button>
+                {showFallback === fb.label && <div className="mt-2"><NicheList items={fb.items} cap={12} /></div>}
+              </div>
+            ))}
+          </div>
+        </>
+      )}
     </div>
   );
 }
@@ -2264,12 +2521,12 @@ const NAV = [
   { key: "home", label: "首页", icon: HomeIcon },
   { key: "search", label: "查福位", icon: Search },
   { key: "calculator", label: "计算器", icon: Calculator },
-  { key: "ai", label: "AI 助手", icon: Sparkles },
+  { key: "ai", label: "查询助手", icon: Sparkles },
   { key: "more", label: "更多", icon: MoreHorizontal },
 ];
 const TITLES = {
   home: "Home 首页", search: "Find a Lot 查福位", calculator: "Price Calculator 价格计算",
-  ai: "AI Sales Reply", more: "More 更多", promotions: "Promotions 促销",
+  ai: "Ask 查询助手", more: "More 更多", promotions: "Promotions 促销",
   knowledge: "Product Knowledge 常见问题", competitor: "Competitor 竞品比较",
   accounts: "Accounts 账号管理",
 };
@@ -2393,7 +2650,7 @@ export default function App() {
         {tab === "home" && <HomeScreen go={go} />}
         {tab === "search" && <SearchScreen go={go} />}
         {tab === "calculator" && <CalculatorScreen prefill={calcPrefill} multiItems={calcMulti} mode={calcMode} setMode={setCalcMode} />}
-        {tab === "ai" && <AIReplyScreen />}
+        {tab === "ai" && <LotAssistantScreen go={go} />}
         {tab === "more" && <MoreScreen go={go} currentUser={currentUser} />}
         {tab === "accounts" && (
           <AccountsScreen currentUser={currentUser} users={users} onUpdateUsers={updateUsers} onSignOut={signOut} />
