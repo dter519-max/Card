@@ -655,19 +655,37 @@ const [NICHE_AVAIL, NICHE_WALLS] = (() => {
 })();
 
 // One box has to take every shape an agent might type: a wall ("A1L"), a whole hall ("A1"),
-// a whole block ("A"), a bare code ("1032"), or a wall and code together ("A1L-10-32").
-// Hyphens are dropped on both sides before comparing because the same idea is printed two
-// ways depending on the block -- Block A writes 1032, Block F writes 09-138.
+// a whole block ("A"), a bare code ("1032"), or any of those with a code after it
+// ("A1L-10-32"). Hyphens are dropped on both sides before comparing because the same idea
+// is printed two ways depending on the block -- Block A writes 1032, Block F writes 09-138.
+//
+// The block may also be written in front ("L-A6"). That matters most for Block L, whose
+// sections are named A1..A12, B1..B3, C1..C12 with no "L" anywhere in them -- so the
+// natural thing to type is the block plus the section -- and whose A1/A2/A3/B1..B3/C1..C7
+// collide by name with real halls in Blocks A, B and C. Without the prefix, "A1" can only
+// answer with both blocks at once.
+//
+// A block prefix is two letters then a digit ("LA6"); a wall is one letter, a digit, then
+// the wing ("A1L"). The second character tells them apart, so neither reading is ambiguous.
 function parseNicheQuery(raw) {
   const s = raw.trim().toUpperCase().replace(/\s+/g, "");
   if (!s) return null;
-  const m = s.match(/^([A-Z])(\d{1,2})([RFLS])?[-·.]?(.*)$/);
-  if (m) {
-    const [, letter, num, wing, rest] = m;
-    return { blockOnly: "", hallcode: letter + num, wing: wing || "", code: rest.replace(/-/g, "") };
+
+  let block = "";
+  let rest = s;
+  const prefixed = s.match(/^([A-Z])[-·.]?(?=[A-Z]\d)/);
+  if (prefixed) {
+    block = prefixed[1];
+    rest = s.slice(prefixed[0].length);
   }
-  if (/^[A-Z]$/.test(s)) return { blockOnly: s, hallcode: "", wing: "", code: "" };
-  return { blockOnly: "", hallcode: "", wing: "", code: s.replace(/-/g, "") };
+
+  const m = rest.match(/^([A-Z])(\d{1,2})([RFLS])?[-·.]?(.*)$/);
+  if (m) {
+    const [, letter, num, wing, tail] = m;
+    return { block, hallcode: letter + num, wing: wing || "", code: tail.replace(/-/g, "") };
+  }
+  if (/^[A-Z]$/.test(s)) return { block: s, hallcode: "", wing: "", code: "" };
+  return { block: "", hallcode: "", wing: "", code: s.replace(/-/g, "") };
 }
 
 // A whole block can be thousands of rows; the true count is still reported above the list.
@@ -830,11 +848,11 @@ function SearchScreen({ go }) {
 
   const search = useMemo(() => {
     const parsed = parseNicheQuery(q);
-    if (!parsed || (!parsed.blockOnly && !parsed.hallcode && !parsed.code)) return null;
+    if (!parsed || (!parsed.block && !parsed.hallcode && !parsed.code)) return null;
 
     const matched = NICHE_AVAIL.filter((r) => {
       if (blockFilter && r.block !== blockFilter) return false;
-      if (parsed.blockOnly) return r.block === parsed.blockOnly;
+      if (parsed.block && r.block !== parsed.block) return false;
       if (parsed.hallcode && r.hallcode !== parsed.hallcode) return false;
       if (parsed.wing && r.wing !== parsed.wing) return false;
       if (parsed.code && !r.codeNorm.includes(parsed.code)) return false;
@@ -847,7 +865,8 @@ function SearchScreen({ go }) {
     let soldOutWall = null;
     if (!matched.length && parsed.hallcode && !parsed.code) {
       const wall = parsed.hallcode + parsed.wing;
-      const entries = (NICHE_WALLS[wall] || []).filter((e) => !blockFilter || e.block === blockFilter);
+      const entries = (NICHE_WALLS[wall] || []).filter(
+        (e) => (!blockFilter || e.block === blockFilter) && (!parsed.block || e.block === parsed.block));
       if (entries.length) soldOutWall = { wall, total: entries.reduce((a, e) => a + e.total, 0) };
     }
 
@@ -926,6 +945,9 @@ function SearchScreen({ go }) {
           可以整面墙查:打 <b style={{ color: COLOR.ink }}>A1L</b> 就列出 A1 左面墙全部空置的,
           打 <b style={{ color: COLOR.ink }}>A1</b> 是整个 Hall,
           <b style={{ color: COLOR.ink }}>A1L-1032</b> 或 <b style={{ color: COLOR.ink }}>1032</b> 是查单一编号。
+          <br />
+          L 座的区段没有墙面字母(叫 A1、A6、C10…),而且 A1/B1/C1 这些跟 A/B/C 座撞名 —
+          前面加座别就好:<b style={{ color: COLOR.ink }}>L-A6</b> 或 <b style={{ color: COLOR.ink }}>LA6</b>。
         </span>
       </div>
       <div className="flex gap-2 mb-3">
