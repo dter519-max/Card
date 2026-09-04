@@ -40,6 +40,18 @@ npm run deploy     # build + surge dist alphaagentsystem.surge.sh
 资料是**快照不是实时**（`NICHE_STATUS_UPDATED` / `BURIAL_STATUS_UPDATED`），每天都有成交。
 用户会不定期传新的导出 PDF 来更新。
 
+更新资料用 `scripts/update_niche_data.py`（骨灰位），别再从头写解析器 —— 下面每个坑
+都已经修在里面了，重写一次就会重踩一次：
+
+```bash
+pip install pymupdf
+python3 scripts/update_niche_data.py "Niche Floor Plan (xxxxxxxx).pdf"   # 直接改 App.jsx
+python3 scripts/update_niche_data.py plan.pdf --check                      # 只解析+验证
+```
+
+它会自己读出图纸日期、验证结果，验证不过就拒绝写入。「同一面墙出现重复编号」= 解析错了
+（会失败）；「同一个编号出现在两面墙」= 图纸自己印重复（只警告，照实保留，别自作主张改）。
+
 解析要注意的坑（都踩过）：
 - 一个 Hall 的 R/F/L 三个侧翼是**并排**的，每行会重复出现多个层号 token，
   逐行收集时必须在下一个层号处停，否则会把隔壁侧翼的编号吃进来、朝向标错。
@@ -47,6 +59,11 @@ npm run deploy     # build + surge dist alphaagentsystem.surge.sh
   要按 x 坐标建锚点，再把每行按最近的 x 归属。
 - Ground/First Floor 那几页的 block 字母是跟中文名黏在一个 token 里的（如 `K（聖寶院）-`），
   而且可能跟 `BLOCK` 这个词不在同一行 —— 直接取「BLOCK 后面那个词」会拿到 `GROUND` 而误判成 G 座。
+- 同一行的格子 y 座标有次像素抖动（322.7 / 323.1）。**分行必须用聚类，不能把 y 硬套到固定格**，
+  否则边界刚好卡在中间时，落到隔壁 band 的格子会排到下一个区段的行号后面，被吃进隔壁区段。
+- 有些墙中间是**真的有空格**（L 座每个区段都有，B1 的 R 面少一个 0210）。那个空格是用来
+  对齐两边的，不能收掉 —— 收掉的话后面每个编号都会往左移一位。所以格子要按栏位座标摆，
+  空的就留空。
 
 改完资料务必抽样跟旧数据对一遍（A/B/C/D 座当年是完全吻合的，Block N 的总数能跟表格
 自己印的 "TOTAL UNIT" 对上），别解析完就直接信。
