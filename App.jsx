@@ -507,6 +507,201 @@ const BLOCKS = ["A", "B", "C", "D", "E", "F", "G", "K", "L", "M", "N", "P"];
 
 const BURIAL_STATUS_ZONE_KEYS = Object.keys(BURIAL_STATUS);
 
+// Burial plots are coded <zone>-<row>-<plot> (B-1A-18, CA-1-208, DA-13-118), so the search
+// box takes the same shape the sheets print. Source order is sheet order -- zones as the
+// plan pages run, rows top-to-bottom, plots left-to-right -- so results are never re-sorted.
+const [BURIAL_AVAIL, BURIAL_ROWS] = (() => {
+  const avail = [];
+  const rows = {}; // zone -> { row: {total, avail} }
+  for (const zone of BURIAL_STATUS_ZONE_KEYS) {
+    rows[zone] = {};
+    for (const zrow of BURIAL_STATUS[zone]) {
+      let total = 0;
+      let free = 0;
+      for (const cell of zrow.cells) {
+        total += 1;
+        if (cell.s !== "A") continue;
+        free += 1;
+        // The plot number is the last segment; searching "208" should mean plot 208, not
+        // stumble over a row that happens to contain those digits.
+        const plot = cell.c.split("-").slice(2).join("-");
+        avail.push({
+          zone, row: zrow.row, code: cell.c,
+          plot, plotNorm: plot.replace(/-/g, "").toUpperCase(),
+        });
+      }
+      rows[zone][zrow.row] = { total, avail: free };
+    }
+  }
+  return [avail, rows];
+})();
+
+// The zone written in a code is not always the zone key: Zone DB's row 13 is a separate
+// product, coded DBS- and kept as its own zone in the app.
+const BURIAL_ZONE_ALIASES = { DBS: "DB13", DB13: "DB13" };
+// Longest first, so "DBS" and "DB13" win over the "DB" that starts them.
+const BURIAL_ZONE_TOKENS = ["DB13", "DBS", "CA", "CB", "DA", "DB", "IZ", "B"];
+
+// "B", "B-1A", "B-1A-18", "B1A", "DA-13", "1A", "208" all have to land somewhere sensible.
+// The zone is only peeled off the front when what follows actually reads as a row (or the
+// query is separated, or nothing follows) -- otherwise "B8" would lose its B and turn into
+// a search for plot 8, which matches nearly every plot on the site.
+function parseBurialQuery(raw) {
+  const s = raw.trim().toUpperCase().replace(/\s+/g, "");
+  if (!s) return null;
+
+  const hasSep = /[-·.]/.test(s);
+  let zone = "";
+  let rest = s;
+  for (const token of BURIAL_ZONE_TOKENS) {
+    if (!s.startsWith(token)) continue;
+    const tail = s.slice(token.length).replace(/^[-·.]/, "");
+    const key = BURIAL_ZONE_ALIASES[token] || token;
+    if (!BURIAL_ROWS[key]) continue;
+    if (tail === "" || hasSep || BURIAL_ROWS[key][tail.split(/[-·.]/)[0]]) {
+      zone = key;
+      rest = tail;
+      break;
+    }
+  }
+
+  if (!rest) return { zone, row: "", plot: "" };
+
+  const parts = rest.split(/[-·.]/).filter(Boolean);
+  const rowExists = (r) => (zone ? !!BURIAL_ROWS[zone][r]
+    : BURIAL_STATUS_ZONE_KEYS.some((z) => BURIAL_ROWS[z][r]));
+  if (rowExists(parts[0])) {
+    return { zone, row: parts[0], plot: parts.slice(1).join("") };
+  }
+  return { zone, row: "", plot: parts.join("") };
+}
+
+function BurialSearchView({ go }) {
+  const [q, setQ] = useState("");
+  const [zoneFilter, setZoneFilter] = useState("");
+
+  const search = useMemo(() => {
+    const parsed = parseBurialQuery(q);
+    if (!parsed || (!parsed.zone && !parsed.row && !parsed.plot)) return null;
+
+    const matched = BURIAL_AVAIL.filter((r) => {
+      if (zoneFilter && r.zone !== zoneFilter) return false;
+      if (parsed.zone && r.zone !== parsed.zone) return false;
+      if (parsed.row && r.row !== parsed.row) return false;
+      if (parsed.plot && !r.plotNorm.includes(parsed.plot)) return false;
+      return true;
+    });
+
+    // Same distinction the niche search makes: a row that is real but fully taken is a
+    // different answer from a row that isn't in the data, and the first is the useful one.
+    let soldOutRow = null;
+    if (!matched.length && parsed.row && !parsed.plot) {
+      const zones = (parsed.zone ? [parsed.zone] : BURIAL_STATUS_ZONE_KEYS)
+        .filter((z) => (!zoneFilter || z === zoneFilter) && BURIAL_ROWS[z][parsed.row]);
+      if (zones.length) {
+        soldOutRow = {
+          row: parsed.row,
+          zones,
+          total: zones.reduce((a, z) => a + BURIAL_ROWS[z][parsed.row].total, 0),
+        };
+      }
+    }
+
+    const shown = matched.slice(0, RESULT_CAP);
+    const groups = [];
+    for (const r of shown) {
+      const last = groups[groups.length - 1];
+      if (last && last.zone === r.zone && last.row === r.row) last.items.push(r);
+      else groups.push({ zone: r.zone, row: r.row, items: [r] });
+    }
+    return { parsed, total: matched.length, groups, soldOutRow };
+  }, [q, zoneFilter]);
+
+  const shownCount = search ? search.groups.reduce((a, g) => a + g.items.length, 0) : 0;
+  const zoneLabel = (z) => BURIAL_ZONES.find((x) => x.key === z)?.label || z;
+
+  return (
+    <div>
+      <div className="flex items-start gap-1.5 mb-3 text-xs" style={{ color: COLOR.inkSoft, fontFamily: FONT_BODY, lineHeight: 1.6 }}>
+        <Info size={13} className="flex-shrink-0" style={{ marginTop: 2 }} />
+        <span>
+          只列空置(available)位子,截至 {BURIAL_STATUS_UPDATED}。
+          打 <b style={{ color: COLOR.ink }}>B</b> 是整个 Zone,
+          <b style={{ color: COLOR.ink }}>B-1A</b> 是那一行,
+          <b style={{ color: COLOR.ink }}>B-1A-18</b> 是单一位子,
+          只打 <b style={{ color: COLOR.ink }}>208</b> 就在全部 Zone 里找这个位子号。
+        </span>
+      </div>
+
+      <div className="flex gap-2 mb-3">
+        <TextInput placeholder="Zone／行／位子号 e.g. B / B-1A / B-1A-18 / 208" value={q} onChange={(e) => setQ(e.target.value)} />
+        <Select value={zoneFilter} onChange={(e) => setZoneFilter(e.target.value)} style={{ width: 120 }}>
+          <option value="">全部 Zone</option>
+          {BURIAL_STATUS_ZONE_KEYS.map((zk) => <option key={zk} value={zk}>{zk}</option>)}
+        </Select>
+      </div>
+
+      {search && search.total > 0 && (
+        <div className="mb-3" style={{ color: COLOR.green, fontFamily: FONT_BODY, fontSize: 13, fontWeight: 700 }}>
+          找到 {search.total} 个空置
+          {search.total > shownCount && (
+            <span style={{ color: COLOR.inkSoft, fontWeight: 500 }}> · 只显示前 {shownCount} 个,再打细一点就能缩小范围</span>
+          )}
+        </div>
+      )}
+
+      {search && search.total === 0 && (
+        <p style={{ color: COLOR.inkSoft, fontFamily: FONT_BODY, fontSize: 13, lineHeight: 1.7 }}>
+          {search.soldOutRow ? (
+            <>
+              第 <b style={{ color: COLOR.ink }}>{search.soldOutRow.row}</b> 行
+              ({search.soldOutRow.zones.join("／")})在资料库里有 {search.soldOutRow.total} 个位子,
+              但目前<b style={{ color: COLOR.ink }}>没有一个是空置的</b>(全部已售/保留)。
+            </>
+          ) : (
+            <>没有找到空置位子 — 可能已售出,或 Zone／编号不在资料库里。请跟主管确认。</>
+          )}
+        </p>
+      )}
+
+      <div className="space-y-4">
+        {(search ? search.groups : []).map((g) => (
+          <div key={`${g.zone}-${g.row}`}>
+            <div className="flex items-baseline justify-between gap-2 mb-1.5 px-0.5">
+              <span style={{ color: COLOR.ink, fontFamily: FONT_BODY, fontWeight: 700, fontSize: 13, minWidth: 0 }}>
+                {zoneLabel(g.zone)} · 第 {g.row} 行
+              </span>
+              <span className="flex-shrink-0" style={{ color: COLOR.green, fontFamily: FONT_BODY, fontSize: 11, fontWeight: 700 }}>
+                空 {g.items.length}
+                <span style={{ color: COLOR.inkSoft, fontWeight: 500 }}> / {BURIAL_ROWS[g.zone][g.row].total}</span>
+              </span>
+            </div>
+            <div className="space-y-2">
+              {g.items.map((r) => (
+                <Card key={r.code} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <div className="flex-1" onClick={() => go("calculator", { zoneKey: r.zone, code: r.code }, null, "burial")} style={{ cursor: "pointer" }}>
+                    <span style={{ fontFamily: FONT_DISPLAY, color: COLOR.ink, fontSize: 15, fontWeight: 700 }}>{r.code}</span>
+                    <div style={{ color: COLOR.inkSoft, fontSize: 12, fontFamily: FONT_BODY, marginTop: 2 }}>
+                      {zoneLabel(r.zone)} · 第 {r.row} 行 · 位子 {r.plot}
+                    </div>
+                  </div>
+                  <StatusPill status="available" />
+                </Card>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {search && search.total > 0 && (
+        <p className="mt-3 text-xs" style={{ color: COLOR.inkSoft, fontFamily: FONT_BODY }}>
+          点卡片直接带入计算器算这个位子的价钱
+        </p>
+      )}
+    </div>
+  );
+}
+
 function BurialAvailabilityView({ go }) {
   const [zoneKey, setZoneKey] = useState(BURIAL_STATUS_ZONE_KEYS[0]);
   const [q, setQ] = useState("");
@@ -842,6 +1037,7 @@ function NicheAvailabilityView({ go }) {
 function SearchScreen({ go }) {
   const [plotType, setPlotType] = useState("niche");
   const [nicheView, setNicheView] = useState("search"); // "search" | "grid"
+  const [burialView, setBurialView] = useState("search"); // "search" | "grid"
   const [q, setQ] = useState("");
   const [blockFilter, setBlockFilter] = useState("");
   const [selected, setSelected] = useState([]); // multi-select for combined quotation
@@ -902,27 +1098,32 @@ function SearchScreen({ go }) {
     </div>
   );
 
-  if (plotType === "burial") {
-    return (
-      <div className="px-4 pt-4 pb-28">
-        {typeToggle}
-        <BurialAvailabilityView go={go} />
-      </div>
-    );
-  }
-
-  const nicheViewToggle = (
+  const viewToggle = (view, setView) => (
     <div className="flex gap-2 mb-3">
-      <button onClick={() => setNicheView("search")} className="flex-1 rounded-xl px-3 py-2 text-sm"
-        style={{ background: nicheView === "search" ? COLOR.panel2 : "transparent", color: nicheView === "search" ? COLOR.ink : COLOR.inkSoft, border: `1px solid ${COLOR.line}`, fontFamily: FONT_BODY, fontWeight: 600 }}>
+      <button onClick={() => setView("search")} className="flex-1 rounded-xl px-3 py-2 text-sm"
+        style={{ background: view === "search" ? COLOR.panel2 : "transparent", color: view === "search" ? COLOR.ink : COLOR.inkSoft, border: `1px solid ${COLOR.line}`, fontFamily: FONT_BODY, fontWeight: 600 }}>
         编号搜索 Search
       </button>
-      <button onClick={() => setNicheView("grid")} className="flex-1 rounded-xl px-3 py-2 text-sm"
-        style={{ background: nicheView === "grid" ? COLOR.panel2 : "transparent", color: nicheView === "grid" ? COLOR.ink : COLOR.inkSoft, border: `1px solid ${COLOR.line}`, fontFamily: FONT_BODY, fontWeight: 600 }}>
+      <button onClick={() => setView("grid")} className="flex-1 rounded-xl px-3 py-2 text-sm"
+        style={{ background: view === "grid" ? COLOR.panel2 : "transparent", color: view === "grid" ? COLOR.ink : COLOR.inkSoft, border: `1px solid ${COLOR.line}`, fontFamily: FONT_BODY, fontWeight: 600 }}>
         格子图 Browse Grid
       </button>
     </div>
   );
+
+  if (plotType === "burial") {
+    return (
+      <div className="px-4 pt-4 pb-28">
+        {typeToggle}
+        {viewToggle(burialView, setBurialView)}
+        {burialView === "grid"
+          ? <BurialAvailabilityView go={go} />
+          : <BurialSearchView go={go} />}
+      </div>
+    );
+  }
+
+  const nicheViewToggle = viewToggle(nicheView, setNicheView);
 
   if (nicheView === "grid") {
     return (
