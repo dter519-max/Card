@@ -2229,6 +2229,38 @@ const FSP_INCLUDES = [
   "送殡冷气巴士", "出殡引导车", "专业服务团队", "追思照片 + USB 随身碟",
 ];
 
+// Maintenance / Trust Fund charges, off the company's "ALPHA Trust fund" sheet. Read from
+// a render of the page, not its text layer -- the OCR collapsed all three tables into one
+// run of numbers, and these are charges an agent quotes.
+//
+// This is an ADDITIONAL charge on top of the lot price, not part of it: the price lists
+// carry it as a separate note, and the amounts there match this sheet. The calculator's
+// quote therefore does not include it.
+const MAINT_NICHE = [
+  ["A", "1,700", "3,200"], ["B", "1,700", "3,200"], ["C", "1,700", "3,200"],
+  ["D", "1,700", "3,200"], ["E", "2,500", "4,800"], ["F", "2,500", "4,800"],
+  ["G", "2,500", "4,800"], ["L", "1,800", "3,500"], ["M", "1,700", "3,200"],
+  ["N", "1,700", "3,200"], ["P", "1,700", "3,200"],
+];
+// The sheet lists no row for Block K, and none for burial Zones A / AS / B.
+const MAINT_NICHE_MISSING = NICHE_STATUS_BLOCK_KEYS.filter(
+  (b) => !MAINT_NICHE.some(([x]) => x === b));
+
+const MAINT_BURIAL = [
+  ["CA", "5,800", "1,000"], ["CB", "6,900", "1,000"], ["DB", "5,000", "—"],
+  ["DA", "6,000", "600 *第二个骨灰坛入葬"], ["IZ", "20,000", "1,000"],
+];
+
+// The FSP maintenance sheet names packages by flower/tree; those map one-to-one onto the
+// package names on the FSP price sheet (pine=松柏, orchid=兰薰, lotus=生莲, lily=百合, rose=玫瑰).
+const MAINT_FSP = [
+  ["A-Pine（松柏之茂）", "3,200", "1,000"],
+  ["B-Orchid（兰薰桂馥）", "4,200", "1,500"],
+  ["C-Lotus（步步生莲）", "5,200", "2,000"],
+  ["D-Lily（圣洁·百合）", "2,500", "1,000"],
+  ["E-Rose（永恒·玫瑰）", "3,500", "1,500"],
+];
+
 // 星洲日报摄影比赛得奖名单（到甲板山庄取景）。档案日期 2022 年 12 月。
 // A few filenames had the state truncated, so those are listed without one rather
 // than guessed at.
@@ -2464,29 +2496,100 @@ function KnowledgeScreen() {
       </>),
     },
     {
-      key: "caveat", title: "⑨ 报价前一定要留意", hint: "会出错的地方都在这里",
+      key: "trust", title: "⑨ 信托基金 Trust Fund · 维护费", hint: "价钱以外还要另外收的",
+      body: (<>
+        <div className="rounded-xl px-3 py-2.5 mb-1" style={{ background: "rgba(224,138,74,0.10)", border: `1px solid rgba(224,138,74,0.35)` }}>
+          <p style={{ color: COLOR.orange, fontFamily: FONT_BODY, fontSize: 12.5, lineHeight: 1.7 }}>
+            ⚠️ 这是<b>另外收的</b>,不在福位／福地的价钱里面 ——
+            计算器算出来的数字<b>不包括这一笔</b>。跟客户讲总数时记得加上去。
+          </p>
+        </div>
+
+        <div style={{ marginTop: 10 }}>
+          <div style={{ color: COLOR.ink, fontFamily: FONT_BODY, fontWeight: 700, fontSize: 13 }}>骨灰位 Niche · 维护费（RM）</div>
+          <div className="flex items-baseline justify-between gap-3 py-1.5" style={{ borderTop: `1px solid ${COLOR.line}` }}>
+            <span style={{ color: COLOR.inkSoft, fontFamily: FONT_BODY, fontSize: 11.5 }}>座</span>
+            <span style={{ color: COLOR.inkSoft, fontFamily: FONT_BODY, fontSize: 11.5 }}>单人 / 双人</span>
+          </div>
+          {MAINT_NICHE.map(([b, s, d]) => (
+            <div key={b} className="flex items-baseline justify-between gap-3 py-1.5" style={{ borderTop: `1px solid ${COLOR.line}` }}>
+              <span style={{ color: COLOR.inkSoft, fontFamily: FONT_BODY, fontSize: 12.5 }}>{b} 座</span>
+              <span style={{ color: COLOR.ink, fontFamily: FONT_BODY, fontSize: 12.5, fontWeight: 600 }}>{s} / {d}</span>
+            </div>
+          ))}
+          {MAINT_NICHE_MISSING.length > 0 && (
+            <P>
+              ⚠️ 这张表上<b style={{ color: COLOR.ink }}>没有 {MAINT_NICHE_MISSING.join("、")} 座</b>的维护费 ——
+              卖这几座之前要跟主管问,别照别座的数字套。
+            </P>
+          )}
+        </div>
+
+        <div style={{ marginTop: 14 }}>
+          <div style={{ color: COLOR.ink, fontFamily: FONT_BODY, fontWeight: 700, fontSize: 13 }}>土葬 Burial Plot（RM）</div>
+          <div className="flex items-baseline justify-between gap-3 py-1.5" style={{ borderTop: `1px solid ${COLOR.line}` }}>
+            <span style={{ color: COLOR.inkSoft, fontFamily: FONT_BODY, fontSize: 11.5 }}>Zone</span>
+            <span style={{ color: COLOR.inkSoft, fontFamily: FONT_BODY, fontSize: 11.5 }}>Trust Fund / SHENG-JI</span>
+          </div>
+          {MAINT_BURIAL.map(([z, tf, sj]) => (
+            <div key={z} className="flex items-baseline justify-between gap-3 py-1.5" style={{ borderTop: `1px solid ${COLOR.line}` }}>
+              <span style={{ color: COLOR.inkSoft, fontFamily: FONT_BODY, fontSize: 12.5 }}>Zone {z}</span>
+              <span className="text-right" style={{ color: COLOR.ink, fontFamily: FONT_BODY, fontSize: 12.5, fontWeight: 600 }}>{tf} / {sj}</span>
+            </div>
+          ))}
+          <P>
+            SHENG-JI 那一栏,原文写的是「additional charges for customer, subject to latest market price」——
+            <b style={{ color: COLOR.ink }}>额外收费,以最新市价为准</b>,所以要跟主管拿当下的数字。
+          </P>
+          <P>
+            ⚠️ 这张表上<b style={{ color: COLOR.ink }}>没有 Zone A / AS,也没有 Zone B</b>。要卖这几区先问清楚。
+          </P>
+        </div>
+
+        <div style={{ marginTop: 14 }}>
+          <div style={{ color: COLOR.ink, fontFamily: FONT_BODY, fontWeight: 700, fontSize: 13 }}>圆满契约 FSP（RM）</div>
+          <div className="flex items-baseline justify-between gap-3 py-1.5" style={{ borderTop: `1px solid ${COLOR.line}` }}>
+            <span style={{ color: COLOR.inkSoft, fontFamily: FONT_BODY, fontSize: 11.5 }}>配套</span>
+            <span style={{ color: COLOR.inkSoft, fontFamily: FONT_BODY, fontSize: 11.5 }}>预售 PRE-NEED / 即用 AS-NEED</span>
+          </div>
+          {MAINT_FSP.map(([p, pre, asn]) => (
+            <div key={p} className="flex items-baseline justify-between gap-3 py-1.5" style={{ borderTop: `1px solid ${COLOR.line}` }}>
+              <span style={{ color: COLOR.inkSoft, fontFamily: FONT_BODY, fontSize: 12.5, minWidth: 0 }}>{p}</span>
+              <span className="flex-shrink-0" style={{ color: COLOR.ink, fontFamily: FONT_BODY, fontSize: 12.5, fontWeight: 600 }}>{pre} / {asn}</span>
+            </div>
+          ))}
+        </div>
+      </>),
+    },
+    {
+      key: "caveat", title: "⑩ 报价前一定要留意", hint: "会出错的地方都在这里",
       body: (<>
         <P>
-          <b style={{ color: COLOR.ink }}>1. 资料是快照,不是即时的。</b>
+          <b style={{ color: COLOR.ink }}>1. 计算器的数字不含维护费／信托基金。</b>
+          那是另外一笔(骨灰位 RM1,700–4,800、土葬 RM5,000–20,000),明细在上一章。
+          跟客户报总数时要自己加上去。
+        </P>
+        <P>
+          <b style={{ color: COLOR.ink }}>2. 资料是快照,不是即时的。</b>
           骨灰位截至 {NICHE_STATUS_UPDATED}、土葬截至 {BURIAL_STATUS_UPDATED}。每天都有成交,
           落单前一定要跟主管核实那一格还在不在。
         </P>
         <P>
-          <b style={{ color: COLOR.ink }}>2. E 座和 N 座的 3B 层算不出价钱。</b>
+          <b style={{ color: COLOR.ink }}>3. E 座和 N 座的 3B 层算不出价钱。</b>
           公司的价目表在同一个位置写的是「Level 5」,两份文件对不上,要问过主管才好报(影响 6 格)。
         </P>
         <P>
-          <b style={{ color: COLOR.ink }}>3. 「分类格」看不出空／售。</b>
+          <b style={{ color: COLOR.ink }}>4. 「分类格」看不出空／售。</b>
           少数格子被价格分类色(例如 Special View)盖住,格子图会标「状态待确认」,遇到要另外问。
         </P>
         <P>
-          <b style={{ color: COLOR.ink }}>4. Zone A / AS 没有土葬位子图。</b>
+          <b style={{ color: COLOR.ink }}>5. Zone A / AS 没有土葬位子图。</b>
           价钱算得出来,但空／售要跟主管查。
         </P>
       </>),
     },
     {
-      key: "awards", title: "⑩ 星洲日报摄影比赛", hint: "42 幅得奖作品在甲板取景",
+      key: "awards", title: "⑫ 星洲日报摄影比赛", hint: "42 幅得奖作品在甲板取景",
       body: (<>
         <P>
           <b style={{ color: COLOR.ink }}>星洲日报</b>主办的摄影比赛,参赛者到<b style={{ color: COLOR.ink }}>甲板山庄取景</b>,
@@ -2525,7 +2628,7 @@ function KnowledgeScreen() {
       </>),
     },
     {
-      key: "faq", title: "⑪ 常见问答", hint: "客户会这样问",
+      key: "faq", title: "⑬ 常见问答", hint: "客户会这样问",
       body: (<>
         {[
           ["单人位和双人位差在哪?", "双人位可以放两个骨灰坛(通常给夫妻),单人位一个。价钱不同,格子图最上面那行 D／S 就是标这个,点进计算器会自动选对。"],
