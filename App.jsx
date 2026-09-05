@@ -2942,7 +2942,7 @@ const PARK_BLOCKS = [
     "1ubCS1BIJMBOmCO2S7vxgzVw7TEXDMsjl", "1CoNxacimkvN7JnNQO_6cv5vfdp0gwvqE",
     "1aNuAlWsEaabcdzQUSoSVUC0tu49oy5YE", "1j-z4UQucmSgI35n5JNkRe5aF4YZdepJ_"],
     note: "最后一张是双人位的门板设计" },
-  { k: "K", cn: "圣宝院", folder: null, photos: [] },
+  { k: "K", cn: "圣宝院", mapCn: "盛宝殿", folder: null, photos: [] },
   { k: "L", cn: "存孝院", mapCn: "忠孝院", folder: "19Gn6RO19NlfYVTvygG0vEdh3yKgqrsJ3", photos: [
     "1BOvayxi94dmwvYyt41oG_xnaiNXsiXvm", "1yWcnIOJ9BsvxJq1-RAAik7YpXNLyd7LA",
     "1CgRE50e3JM1F7kxYU-fOD4HMBJx3QNGO", "1Vn3U5rD-tiQ6b3H-hEye6iQixI98N5Kn",
@@ -2957,7 +2957,7 @@ const PARK_BLOCKS = [
     "1q_LHNS-cwWSuN0ueuhu3ARqdrPX-BoSU", "11BHae0oIYWItLMkrIndU8bA7gcCNp4Kg",
     "1sjKnN03lwQGW511TzpqSxQkxo1uSAp06", "13iqaMgklyeGHscMe36doiaJpb2uHlh5h",
     "1HbOMKYsyMfcr6PooTPIH5Aa8k9Gm5ThE"], note: "最后一张是福位样本" },
-  { k: "P", cn: "竹林阁", mapCn: "西合院", folder: null, photos: [] },
+  { k: "P", cn: "竹林阁", mapCn: "四合院", folder: null, photos: [] },
 ];
 
 // Zone C's folder holds both CA and CB, so the two share it and take the shots that
@@ -3198,11 +3198,11 @@ function ParkScreen({ go }) {
         <div style={{ color: COLOR.ink, fontFamily: FONT_BODY, fontWeight: 600, fontSize: 13 }}>关于这些名字和照片</div>
         <p style={{ color: COLOR.inkSoft, fontFamily: FONT_BODY, fontSize: 12, lineHeight: 1.75, marginTop: 6 }}>
           中文座名是照<b style={{ color: COLOR.ink }}>公司的福位楼层图</b>写的（编号也是从那份来的）,
-          再拿去跟园区分布图看板对过 —— <b style={{ color: COLOR.green }}>12 个座里 8 个两份一模一样</b>
-          （A B C D E F G K）。M 座<b style={{ color: COLOR.green }}>公司已经确认是「善福院」</b>
+          再拿去跟园区分布图看板对过 —— <b style={{ color: COLOR.green }}>12 个座里 7 个两份一模一样</b>
+          （A B C D E F G）。M 座<b style={{ color: COLOR.green }}>公司已经确认是「善福院」</b>
           （楼层图 PDF 印的是「三福院」,不用那个）。
           <br />
-          剩下这 3 个还没确认,两份写的不一样:
+          剩下这 4 个还没确认,两份写的不一样:
         </p>
         <div className="mt-2 space-y-1">
           {PARK_BLOCKS.filter((b) => b.mapCn).map((b) => (
