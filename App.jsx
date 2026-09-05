@@ -1804,7 +1804,7 @@ function HomeScreen({ go }) {
         <FeatureCard icon={Tag} label="促销 Promotions" desc="现金回扣详情" onClick={() => go("promotions")} />
         <FeatureCard icon={Sparkles} label="查询助手 Assistant" desc="用讲话的方式问还有什么空置" onClick={() => go("ai")} />
         <FeatureCard icon={BookOpen} label="产品资料" desc="常见问题" onClick={() => go("knowledge")} />
-        <FeatureCard icon={Users} label="竞品比较" desc="对比竞争对手" onClick={() => go("competitor")} />
+        <FeatureCard icon={Users} label="FSP 配套" desc="圆满契约殡仪配套" onClick={() => go("fsp")} />
       </div>
     </div>
   );
@@ -2444,33 +2444,17 @@ function KnowledgeScreen() {
       </>),
     },
     {
-      key: "fsp", title: "⑦ 圆满契约 · 殡仪配套", hint: "FSP,骨灰位／福地以外的另一条产品线",
+      key: "fsp", title: "⑦ 圆满契约 · 殡仪配套", hint: "已经搬到独立的「FSP 配套」那一页",
       body: (<>
         <P>
-          <b style={{ color: COLOR.ink }}>甲板生命关怀 · 圆满契约（Funeral Service Package）</b> ——
-          一站式殡仪服务配套,跟骨灰位／福地是分开卖的。
+          圆满契约（Funeral Service Package）是福位／福地以外的另一条产品线,
+          现在有<b style={{ color: COLOR.ink }}>自己的一页</b> —— 「更多 → FSP 配套」,
+          里面有预购价、即用价、EPP 分期,还有每个配套的头期与月供。
         </P>
-        {FSP_PACKAGES.map((g) => (
-          <div key={g.faith} style={{ marginTop: 10 }}>
-            <div style={{ color: COLOR.ink, fontFamily: FONT_BODY, fontWeight: 700, fontSize: 13 }}>{g.faith}</div>
-            <div style={{ color: COLOR.inkSoft, fontFamily: FONT_BODY, fontSize: 11.5, marginTop: 2 }}>{g.note}</div>
-            <Pair rows={g.rows} />
-          </div>
-        ))}
-        <div className="rounded-xl mt-3 px-3 py-2.5" style={{ background: "rgba(224,138,74,0.10)", border: `1px solid rgba(224,138,74,0.35)` }}>
-          <p style={{ color: COLOR.orange, fontFamily: FONT_BODY, fontSize: 12.5, lineHeight: 1.7 }}>
-            ⚠️ 这些价钱来自 <b>2022 年 1 月</b>的配套简介,而且那份资料自己就写明
-            「价格如有更改,恕不另行通知」。<b>报价前一定要跟主管拿最新价目</b> ——
-            上面的数字只能拿来讲个大概。
-          </p>
-        </div>
-        <P>配套内容（两个宗教版本大致相同）:</P>
-        <div className="flex gap-1.5 flex-wrap" style={{ marginTop: 6 }}>
-          {FSP_INCLUDES.map((x) => (
-            <span key={x} className="px-2 py-1 rounded text-[11px]"
-              style={{ background: COLOR.panel2, color: COLOR.inkSoft, border: `1px solid ${COLOR.line}`, fontFamily: FONT_BODY }}>{x}</span>
-          ))}
-        </div>
+        <P>
+          搬过去是因为那边用的是 <b style={{ color: COLOR.ink }}>2025 年</b>的资料;
+          这里原本放的是 2022 年那份,价钱已经不同,留着两套会报错价。
+        </P>
       </>),
     },
     {
@@ -2660,12 +2644,211 @@ function KnowledgeScreen() {
   );
 }
 
-function CompetitorScreen() {
+/* ============================== FSP 圆满契约 =====================================
+   The funeral service packages, off the 2025 FSP kit. Every figure was read from a
+   render of the deck, not its text layer -- that layer returned the tenure columns in
+   the wrong order on both summary pages (60/60/48/48 for what is printed 48/48/60/60,
+   and 48/36/48 for 36/48/48), which would have put the wrong instalment against the
+   wrong package. The two summary pages and the per-package pages agree on every price,
+   so each number here is carried by two independent pages of the same document.
+=================================================================================== */
+const FSP_SOURCE = "FSP 2025 配套（Team Alpha）";
+const FSP_EPP_PERIOD = "01.07.2025 – 30.09.2025";
+
+const FSP_2025 = [
+  { key: "PINE", cn: "松柏之茂", en: "Pines", faith: "buddha",
+    list: "18,880", rebate: "500", promo: "17,380", pre: "17,880",
+    months: "48 期", tenure: "3年+1年", down: "3,940", monthly: "280", daily: "9.40",
+    note: "念经／打斋只是一个晚上（佛教／广东）",
+    an: { sell: "18,880", price: "18,880", rebate: "—", promo: "18,880" },
+    epp: { upfront: "1,500", tenure: "48", first: "370", each: "330" } },
+  { key: "PINE A+", cn: "松柏之茂 A+", en: "Pines A+", faith: "buddha",
+    list: "26,880", rebate: "1,000", promo: "20,880", pre: "21,880",
+    months: "48 期", tenure: "3年+1年", down: "4,560", monthly: "340", daily: "11.30",
+    note: "念经／打斋只是一个晚上（佛教／广东／客家）",
+    an: { sell: "26,880", price: "22,880", rebate: "1,000", promo: "21,880" },
+    epp: { upfront: "1,800", tenure: "48", first: "515", each: "395" } },
+  { key: "ORCHID", cn: "兰薰桂馥", en: "Orchid", faith: "buddha",
+    list: "33,880", rebate: "2,000", promo: "24,880", pre: "26,880",
+    months: "60 期", tenure: "4年+1年", down: "5,080", monthly: "330", daily: "11",
+    note: "念经／打斋两个晚上（佛教／广东）",
+    an: { sell: "33,880", price: "27,880", rebate: "1,000", promo: "26,880" },
+    epp: { upfront: "2,000", tenure: "60", first: "460", each: "380" } },
+  { key: "LOTUS", cn: "步步生莲", en: "Lotus", faith: "buddha",
+    list: "43,880", rebate: "4,000", promo: "29,880", pre: "33,880",
+    months: "60 期", tenure: "4年+1年", down: "6,480", monthly: "390", daily: "13",
+    note: "念经／打斋两个晚上（佛教／广东）",
+    an: { sell: "43,880", price: "36,880", rebate: "5,000", promo: "31,880" },
+    epp: { upfront: "2,800", tenure: "60", first: "530", each: "450" } },
+  { key: "LILY", cn: "圣洁·百合", en: "Lily", faith: "christian",
+    list: "14,880", rebate: "—", promo: "13,880", pre: "13,880",
+    months: "36 期", tenure: "3年", down: "3,080", monthly: "300", daily: "10",
+    note: "",
+    an: { sell: "14,880", price: "14,880", rebate: "—", promo: "14,880" },
+    epp: { upfront: "1,000", tenure: "48", first: "284", each: "268" } },
+  { key: "ROSE", cn: "永恒·玫瑰", en: "Rose", faith: "christian",
+    list: "21,880", rebate: "2,500", promo: "17,380", pre: "19,880",
+    months: "48 期", tenure: "4年", down: "3,940", monthly: "280", daily: "9.40",
+    note: "",
+    an: { sell: "21,880", price: "21,880", rebate: "2,000", promo: "19,880" },
+    epp: { upfront: "1,500", tenure: "48", first: "370", each: "330" } },
+  { key: "DANDELION", cn: "蒲英飘然", en: "Dandelion", faith: "christian",
+    list: "20,880", rebate: "—", promo: "15,880", pre: "15,880",
+    months: "48 期", tenure: "4年", down: "3,400", monthly: "260", daily: "8.70",
+    note: "不适用于需要 打斋／道教／纸扎／金银／寿衣 的客户,因为未来可能需要补大笔差价",
+    an: { sell: "20,880", price: "17,880", rebate: "—", promo: "17,880" },
+    epp: { upfront: "1,000", tenure: "48", first: "310", each: "310" } },
+];
+
+// Reproduced as the deck prints them, typos and all -- correcting a religious group's
+// name on our own initiative is not ours to do.
+const FSP_OTHER_FAITHS = "FREE THINKER、一贯道、创价学会、真佛中、日连正宗、密宗、巴哈伊、斯里兰卡";
+
+function FSPScreen() {
+  const [mode, setMode] = useState("pre");   // pre | asneed | epp
+  const [openKey, setOpenKey] = useState(FSP_2025[0].key);
+
+  const Tab = ({ id, label }) => (
+    <button onClick={() => setMode(id)} className="flex-1 rounded-xl px-2 py-2 text-[12.5px]"
+      style={{ background: mode === id ? COLOR.gold : COLOR.panel2, color: mode === id ? "#161512" : COLOR.inkSoft, fontFamily: FONT_BODY, fontWeight: 600 }}>
+      {label}
+    </button>
+  );
+  const Line = ({ k, v, strong, muted }) => (
+    <div className="flex items-baseline justify-between gap-3 py-1.5" style={{ borderTop: `1px solid ${COLOR.line}` }}>
+      <span style={{ color: COLOR.inkSoft, fontFamily: FONT_BODY, fontSize: 12.5, minWidth: 0 }}>{k}</span>
+      <span className="flex-shrink-0" style={{
+        color: strong ? COLOR.gold : muted ? COLOR.inkSoft : COLOR.ink,
+        fontFamily: FONT_BODY, fontSize: strong ? 14 : 12.5, fontWeight: strong ? 700 : 600,
+        textDecoration: muted ? "line-through" : "none",
+      }}>{v}</span>
+    </div>
+  );
+
+  const groups = [
+    ["佛教 / 道教", FSP_2025.filter((p) => p.faith === "buddha"), ""],
+    ["基督教 / 天主教 · 其他", FSP_2025.filter((p) => p.faith === "christian"), FSP_OTHER_FAITHS],
+  ];
+
   return (
     <div className="px-4 pt-4 pb-24">
+      <div className="flex items-start gap-1.5 mb-3 text-xs" style={{ color: COLOR.inkSoft, fontFamily: FONT_BODY, lineHeight: 1.6 }}>
+        <Info size={13} className="flex-shrink-0" style={{ marginTop: 2 }} />
+        <span>
+          圆满契约 Funeral Service Package —— 福位／福地以外的另一条产品线。
+          资料来自<b style={{ color: COLOR.ink }}>{FSP_SOURCE}</b>。
+        </span>
+      </div>
+
+      <div className="rounded-xl px-3 py-2.5 mb-3" style={{ background: "rgba(224,138,74,0.10)", border: `1px solid rgba(224,138,74,0.35)` }}>
+        <p style={{ color: COLOR.orange, fontFamily: FONT_BODY, fontSize: 12.5, lineHeight: 1.7 }}>
+          ⚠️ 这份是 <b>2025 年</b>的配套,里面 EPP 的促销期写的是 <b>{FSP_EPP_PERIOD}</b>(已经过了)。
+          价格和促销<b>报价前一定要跟主管核实现行的</b>。
+        </p>
+      </div>
+
+      <div className="flex gap-2 mb-3">
+        <Tab id="pre" label="预购价 Pre-Need" />
+        <Tab id="asneed" label="即用价 As-Need" />
+        <Tab id="epp" label="EPP 分期" />
+      </div>
+
+      {mode === "pre" && (
+        <p className="mb-3 text-xs" style={{ color: COLOR.inkSoft, fontFamily: FONT_BODY, lineHeight: 1.7 }}>
+          新客户优惠:最低头期由 30% 降到 <b style={{ color: COLOR.ink }}>20%</b>,
+          0% 利息分期,供期加长一年。下面的月供是按 20% 头期算的。
+        </p>
+      )}
+      {mode === "asneed" && (
+        <p className="mb-3 text-xs" style={{ color: COLOR.inkSoft, fontFamily: FONT_BODY, lineHeight: 1.7 }}>
+          即用价 = 已经需要用的时候才买（不是预购）。价钱比预购高,回扣也不一样。
+        </p>
+      )}
+      {mode === "epp" && (
+        <p className="mb-3 text-xs" style={{ color: COLOR.inkSoft, fontFamily: FONT_BODY, lineHeight: 1.7 }}>
+          EPP 只给<b style={{ color: COLOR.ink }}>旧客户和 Combo（配套一起买）</b>。
+          客户<b style={{ color: COLOR.ink }}>第一次付给公司的钱 = Upfront + 第一期</b>,记得这样跟他讲。
+        </p>
+      )}
+
+      {groups.map(([label, list, faiths]) => (
+        <div key={label} className="mb-4">
+          <div style={{ color: COLOR.ink, fontFamily: FONT_BODY, fontWeight: 700, fontSize: 13, marginBottom: 2 }}>{label}</div>
+          {faiths && (
+            <div style={{ color: COLOR.inkSoft, fontFamily: FONT_BODY, fontSize: 11, marginBottom: 6, lineHeight: 1.6 }}>其他包括:{faiths}</div>
+          )}
+          <div className="space-y-2">
+            {list.map((p) => {
+              const open = openKey === p.key;
+              const headline = mode === "asneed" ? p.an.promo : mode === "epp" ? p.epp.upfront : p.promo;
+              const headlineLabel = mode === "epp" ? "Upfront" : "";
+              return (
+                <div key={p.key} className="rounded-xl overflow-hidden" style={{ border: `1px solid ${COLOR.line}` }}>
+                  <button onClick={() => setOpenKey(open ? null : p.key)}
+                    className="w-full px-3.5 py-3 flex items-center justify-between text-left"
+                    style={{ background: open ? COLOR.panel2 : "transparent" }}>
+                    <span style={{ minWidth: 0 }}>
+                      <span style={{ color: COLOR.ink, fontFamily: FONT_DISPLAY, fontWeight: 700, fontSize: 14.5 }}>{p.cn}</span>
+                      <span style={{ color: COLOR.inkSoft, fontFamily: FONT_BODY, fontSize: 11.5, marginLeft: 6 }}>{p.en}</span>
+                    </span>
+                    <span className="flex-shrink-0" style={{ color: COLOR.gold, fontFamily: FONT_BODY, fontSize: 13.5, fontWeight: 700 }}>
+                      {headlineLabel && <span style={{ color: COLOR.inkSoft, fontSize: 10.5, fontWeight: 500 }}>{headlineLabel} </span>}
+                      RM{headline}
+                    </span>
+                  </button>
+                  {open && (
+                    <div className="px-3.5 pb-3.5 pt-1">
+                      {mode === "pre" && (<>
+                        <Line k="原价 Selling Price" v={`RM${p.list}`} muted />
+                        <Line k="预购价 Pre-Need" v={`RM${p.pre}`} />
+                        <Line k="特别现金回扣" v={p.rebate === "—" ? "—" : `− RM${p.rebate}`} />
+                        <Line k="优惠价 Promotion Price" v={`RM${p.promo}`} strong />
+                        <Line k="供期" v={`${p.months} · ${p.tenure}`} />
+                        <Line k="20% 头期" v={`RM${p.down}`} />
+                        <Line k="月供" v={`RM${p.monthly} / 月`} />
+                        <Line k="每日只需" v={`RM${p.daily} / 日`} />
+                      </>)}
+                      {mode === "asneed" && (<>
+                        <Line k="原价 Selling Price" v={`RM${p.an.sell}`} muted />
+                        <Line k="即用价 As-Need Price" v={`RM${p.an.price}`} />
+                        <Line k="Compassionate 现金回扣" v={p.an.rebate === "—" ? "—" : `− RM${p.an.rebate}`} />
+                        <Line k="即用优惠价" v={`RM${p.an.promo}`} strong />
+                      </>)}
+                      {mode === "epp" && (<>
+                        <Line k="预购价 Pre-Need" v={`RM${p.pre}`} />
+                        <Line k="现金回扣" v={p.rebate === "—" ? "—" : `− RM${p.rebate}`} />
+                        <Line k="优惠价" v={`RM${p.promo}`} />
+                        <Line k="Upfront Payment" v={`RM${p.epp.upfront}`} strong />
+                        <Line k="供期" v={`${p.epp.tenure} 期`} />
+                        <Line k="第一期" v={`RM${p.epp.first}`} />
+                        <Line k="之后每期" v={`RM${p.epp.each}`} />
+                        <Line k="客户第一次要付" v={`RM${p.epp.upfront} + RM${p.epp.first}`} />
+                      </>)}
+                      {p.note && (
+                        <p style={{ color: COLOR.orange, fontFamily: FONT_BODY, fontSize: 11.5, lineHeight: 1.7, marginTop: 8 }}>
+                          *** {p.note}
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ))}
+
       <Card>
-        <p style={{ color: COLOR.inkSoft, fontFamily: FONT_BODY, fontSize: 13, lineHeight: 1.6 }}>
-          竞品资料还没有录入。要开始用的话,跟你的主管拿竞争对手的价格/福位资料,我可以帮你整理进来。
+        <div style={{ color: COLOR.ink, fontFamily: FONT_BODY, fontWeight: 600, fontSize: 13 }}>配套内含</div>
+        <div className="flex gap-1.5 flex-wrap" style={{ marginTop: 8 }}>
+          {FSP_INCLUDES.map((x) => (
+            <span key={x} className="px-2 py-1 rounded text-[11px]"
+              style={{ background: COLOR.panel2, color: COLOR.inkSoft, border: `1px solid ${COLOR.line}`, fontFamily: FONT_BODY }}>{x}</span>
+          ))}
+        </div>
+        <p style={{ color: COLOR.inkSoft, fontFamily: FONT_BODY, fontSize: 12, lineHeight: 1.7, marginTop: 10 }}>
+          维护费另外算(A-Pine RM3,200 / B-Orchid RM4,200 / C-Lotus RM5,200 / D-Lily RM2,500 / E-Rose RM3,500,预购价;
+          即用另有一套)—— 明细在「产品资料 → 信托基金」那一章。
         </p>
       </Card>
     </div>
@@ -3019,7 +3202,7 @@ const NAV = [
 const TITLES = {
   home: "Home 首页", search: "Find a Lot 查福位", calculator: "Price Calculator 价格计算",
   ai: "Ask 查询助手", more: "More 更多", promotions: "Promotions 促销",
-  knowledge: "Product Knowledge 产品资料", competitor: "Competitor 竞品比较",
+  knowledge: "Product Knowledge 产品资料", fsp: "FSP 圆满契约配套",
   accounts: "Accounts 账号管理",
 };
 
@@ -3032,9 +3215,9 @@ function MoreScreen({ go, currentUser }) {
         desc={currentUser?.role === "admin" ? `${currentUser.email} · 管理员` : currentUser?.email}
         onClick={() => go("accounts")}
       />
+      <FeatureCard icon={Users} label="FSP 配套 Funeral Service" desc="圆满契约 · 预购价 / 即用价 / EPP 分期" onClick={() => go("fsp")} />
       <FeatureCard icon={Tag} label="促销 Promotions" desc="现金回扣详情" onClick={() => go("promotions")} />
       <FeatureCard icon={BookOpen} label="产品资料 Knowledge" desc="位置车程 · 园区设施 · 产品线 · 报价规则 · 常见问答" onClick={() => go("knowledge")} />
-      <FeatureCard icon={Users} label="竞品比较 Competitor" desc="对比竞争对手" onClick={() => go("competitor")} />
       <Card style={{ marginTop: 8 }}>
         <div style={{ color: COLOR.ink, fontFamily: FONT_BODY, fontWeight: 600, fontSize: 13, marginBottom: 4 }}>关于这个版本</div>
         <p style={{ color: COLOR.inkSoft, fontFamily: FONT_BODY, fontSize: 12, lineHeight: 1.6 }}>
@@ -3107,7 +3290,7 @@ export default function App() {
     setTab(key);
   };
 
-  const subScreen = ["promotions", "knowledge", "competitor", "accounts"].includes(tab);
+  const subScreen = ["promotions", "knowledge", "fsp", "accounts"].includes(tab);
 
   const fontImport = (
     <style>{`@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600;700&display=swap');`}</style>
@@ -3149,7 +3332,7 @@ export default function App() {
         )}
         {tab === "promotions" && <PromotionsScreen />}
         {tab === "knowledge" && <KnowledgeScreen />}
-        {tab === "competitor" && <CompetitorScreen />}
+        {tab === "fsp" && <FSPScreen />}
 
         {!subScreen && (
           <div className="fixed bottom-0 left-0 right-0 flex items-center justify-around py-2 z-20" style={{ background: COLOR.panel, borderTop: `1px solid ${COLOR.line}` }}>
