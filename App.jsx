@@ -2149,21 +2149,247 @@ function LotAssistantScreen({ go }) {
   );
 }
 
-function KnowledgeScreen() {
-  const faqs = [
-    { q: "现金回扣适用哪些 Block?", a: "A, B, C, D, E, F, G, K, L 座。M、N、P 座不适用。" },
-    { q: "头期怎么算?", a: "一律按净价(原价减回扣后)的 40% 算,不管促销表写的最低是多少。" },
-    { q: "供期怎么定?", a: "看净价:低于 RM10,000 是 18 个月;RM10,000–20,000 是 24 个月;高于 RM20,000 是 36 个月。" },
-    { q: "月供为什么不是整除出来的数字?", a: "我们会把月供尾数抹整(比如 447 抹成 440),差额乘以供期月数后并入头期,方便客户记。" },
-  ];
+// Product knowledge an agent needs in front of a customer, grouped so it can be tapped
+// through instead of scrolled. Every fact here is either read off the company's own
+// material (the map boards in PMB Photos, the price lists, the promo memo) or counted
+// live from the inventory data in this file -- nothing is written from general knowledge
+// about the place, because an agent will repeat this to a customer.
+
+// Driving times as printed on the company's own "Location Map" board.
+const DRIVE_TIMES = [
+  ["布先 Pusing", "5 分钟"],
+  ["华都牙也 Batu Gajah", "10 分钟"],
+  ["万里望 Menglembu", "10 分钟"],
+  ["斯里宾 Silibin", "15 分钟"],
+  ["Tronoh", "15 分钟"],
+  ["上环 18 / AEON Station 18", "15 分钟"],
+  ["九洞 Jelapang", "20 分钟"],
+  ["波赖 Simpang Pulai", "20 分钟"],
+  ["怡保市 Ipoh", "25 分钟"],
+  ["昆仑喇叭 Gunung Rapat", "25 分钟"],
+  ["务边 Gopeng", "30 分钟"],
+  ["实兆远／红土坎 Sitiawan / Lumut", "45 分钟"],
+];
+
+const PARK_FACILITIES = [
+  ["24 小时保安", "有围篱与守卫设施,入口设守卫亭"],
+  ["专车导览", "导览车与专车接送参观服务"],
+  ["生命规划师团队", "专业团队陪同讲解"],
+  ["前台客服", "接待处有专人接待"],
+  ["大伯公（善福堂）", "园内供奉,可上香"],
+  ["宽敞停车场", "自驾来看位方便"],
+  ["火化场", "园区内设有火化场"],
+];
+
+const PARK_SCENERY = [
+  "天然湖景（面向水池）", "瀑布", "佛塔", "佛祖", "四面观音",
+  "凉亭", "步行街", "花园与休息处", "马头墙（徽派江南建筑）",
+];
+
+function Accordion({ items }) {
+  const [open, setOpen] = useState(items.length ? items[0].key : null);
   return (
-    <div className="px-4 pt-4 pb-24 space-y-3">
-      {faqs.map((f, i) => (
-        <Card key={i}>
-          <div style={{ color: COLOR.ink, fontFamily: FONT_BODY, fontWeight: 600, fontSize: 13.5 }}>{f.q}</div>
-          <p style={{ color: COLOR.inkSoft, fontFamily: FONT_BODY, fontSize: 12.5, marginTop: 4, lineHeight: 1.6 }}>{f.a}</p>
-        </Card>
+    <div className="space-y-2">
+      {items.map((it) => {
+        const isOpen = open === it.key;
+        return (
+          <div key={it.key} className="rounded-xl overflow-hidden" style={{ border: `1px solid ${COLOR.line}` }}>
+            <button onClick={() => setOpen(isOpen ? null : it.key)}
+              className="w-full px-3.5 py-3 flex items-center justify-between text-left"
+              style={{ background: isOpen ? COLOR.panel2 : "transparent" }}>
+              <span style={{ minWidth: 0 }}>
+                <span style={{ color: COLOR.ink, fontFamily: FONT_BODY, fontWeight: 700, fontSize: 13.5 }}>{it.title}</span>
+                {it.hint && (
+                  <span className="block" style={{ color: COLOR.inkSoft, fontFamily: FONT_BODY, fontSize: 11.5, marginTop: 2 }}>{it.hint}</span>
+                )}
+              </span>
+              <ChevronRight size={16} color={COLOR.inkSoft} className="flex-shrink-0"
+                style={{ transform: isOpen ? "rotate(90deg)" : "none", transition: "transform .15s" }} />
+            </button>
+            {isOpen && <div className="px-3.5 pb-3.5 pt-1">{it.body}</div>}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function KnowledgeScreen() {
+  const P = ({ children }) => (
+    <p style={{ color: COLOR.inkSoft, fontFamily: FONT_BODY, fontSize: 12.5, lineHeight: 1.75, marginTop: 6 }}>{children}</p>
+  );
+  const Pair = ({ rows }) => (
+    <div style={{ marginTop: 6 }}>
+      {rows.map(([k, v]) => (
+        <div key={k} className="flex items-baseline justify-between gap-3 py-1.5" style={{ borderTop: `1px solid ${COLOR.line}` }}>
+          <span style={{ color: COLOR.inkSoft, fontFamily: FONT_BODY, fontSize: 12.5, minWidth: 0 }}>{k}</span>
+          <span className="flex-shrink-0" style={{ color: COLOR.ink, fontFamily: FONT_BODY, fontSize: 12.5, fontWeight: 600 }}>{v}</span>
+        </div>
       ))}
+    </div>
+  );
+
+  // Counted from the inventory in this file, so these never drift from the grids.
+  const nicheAvail = NICHE_AVAIL.length;
+  const nicheDouble = NICHE_AVAIL.filter((r) => r.unit === "D").length;
+  const nicheSingle = NICHE_AVAIL.filter((r) => r.unit === "S").length;
+  const burialAvail = BURIAL_AVAIL.length;
+  const blocksWithStock = NICHE_STATUS_BLOCK_KEYS.filter((b) => NICHE_AVAIL.some((r) => r.block === b));
+
+  const items = [
+    {
+      key: "intro", title: "① 项目简介", hint: "一句话讲清楚我们卖什么",
+      body: (<>
+        <P>
+          <b style={{ color: COLOR.ink }}>甲板山庄 Papan Memorial</b>(江南古镇),位于霹雳州甲板,
+          是一座江南徽派园林式的纪念园区 —— 卖两种产品:<b style={{ color: COLOR.ink }}>骨灰位(Niche)</b>
+          放在室内的纪念馆里,<b style={{ color: COLOR.ink }}>土葬福地(Burial Plot)</b>在户外的园区。
+        </P>
+        <P>公司在自己的看板上打的定位是「<b style={{ color: COLOR.ink }}>距离怡保市最近的风景墓园</b>」。</P>
+        <Pair rows={[
+          ["骨灰位 · 目前空置", `${nicheAvail.toLocaleString()} 个`],
+          ["　其中双人位 / 单人位", `${nicheDouble.toLocaleString()} / ${nicheSingle.toLocaleString()}`],
+          ["土葬福地 · 目前空置", `${burialAvail.toLocaleString()} 个`],
+          ["骨灰位资料截至", NICHE_STATUS_UPDATED],
+          ["土葬资料截至", BURIAL_STATUS_UPDATED],
+        ]} />
+      </>),
+    },
+    {
+      key: "location", title: "② 位置与车程", hint: "客户最常问的第一题",
+      body: (<>
+        <P>以下车程是<b style={{ color: COLOR.ink }}>公司地图看板上印的</b>(约略值,实际看路况):</P>
+        <Pair rows={DRIVE_TIMES} />
+        <P>
+          出高速可走 <b style={{ color: COLOR.ink }}>Gopeng Toll(Exit 135 / 137)</b>,
+          或从 Ipoh–Lumut Highway 转 Jalan Pusing 进来。
+          附近地标:Kellie's Castle、三宝洞 Sam Poh Tong、Meru Valley Golf。
+        </P>
+      </>),
+    },
+    {
+      key: "facility", title: "③ 园区设施", hint: "带客户看位时可以讲的",
+      body: (<>
+        <Pair rows={PARK_FACILITIES} />
+        <P>约参观:先跟公司预约,有<b style={{ color: COLOR.ink }}>专车导览</b>,生命规划师会陪同讲解。</P>
+      </>),
+    },
+    {
+      key: "scenery", title: "④ 园区景观", hint: "讲风水与环境的卖点",
+      body: (<>
+        <div className="flex gap-2 flex-wrap" style={{ marginTop: 6 }}>
+          {PARK_SCENERY.map((s) => (
+            <span key={s} className="px-2.5 py-1 rounded-full text-[11.5px]"
+              style={{ background: COLOR.panel2, color: COLOR.ink, border: `1px solid ${COLOR.line}`, fontFamily: FONT_BODY }}>{s}</span>
+          ))}
+        </div>
+        <P>
+          计算器里每个 Hall 都画了朝向图,会写出那一面墙<b style={{ color: COLOR.ink }}>面向什么</b>
+          (例如「南 South · 面向水池」)—— 客户问风水朝向时直接翻给他看。
+        </P>
+      </>),
+    },
+    {
+      key: "product", title: "⑤ 产品线", hint: "有哪些座、哪些区",
+      body: (<>
+        <P><b style={{ color: COLOR.ink }}>骨灰位 Niche</b> —— 目前还有空置的座:</P>
+        <div className="flex gap-1.5 flex-wrap" style={{ marginTop: 6 }}>
+          {NICHE_STATUS_BLOCK_KEYS.map((b) => {
+            const n = NICHE_AVAIL.filter((r) => r.block === b).length;
+            return (
+              <span key={b} className="px-2 py-1 rounded-lg text-[11.5px]"
+                style={{
+                  background: n ? COLOR.panel2 : "transparent",
+                  color: n ? COLOR.ink : COLOR.inkSoft,
+                  border: `1px solid ${COLOR.line}`, fontFamily: FONT_BODY,
+                  textDecoration: n ? "none" : "line-through",
+                }}>
+                {b} 座 · {n || "售罄"}
+              </span>
+            );
+          })}
+        </div>
+        <P>
+          每一格分<b style={{ color: COLOR.ink }}>双人位 D</b> 和 <b style={{ color: COLOR.ink }}>单人位 S</b>,
+          价钱不同 —— 格子图最上面那行标的就是。层数越高／越靠正面(Frontage),价钱通常越高。
+        </P>
+        <P><b style={{ color: COLOR.ink }}>土葬福地 Burial Plot</b> —— 分区如下:</P>
+        <Pair rows={BURIAL_ZONES.map((z) => [z.label, z.size || "—"])} />
+      </>),
+    },
+    {
+      key: "money", title: "⑥ 价格与付款规则", hint: "算钱的规矩",
+      body: (<>
+        <Pair rows={[
+          ["现金回扣适用", "A / B / C / D / E / F / G / K / L 座"],
+          ["不适用", "M、N、P 座"],
+          ["头期", "一律按净价的 40%"],
+          ["供期 · 净价 < RM10,000", "18 个月"],
+          ["供期 · RM10,000–20,000", "24 个月"],
+          ["供期 · > RM20,000", "36 个月"],
+          ["当期促销", CURRENT_PROMO.name],
+        ]} />
+        <P>
+          <b style={{ color: COLOR.ink }}>头期一律按 40% 算</b>,不管促销表写的最低是 30% 还是 40% ——
+          这样 agent 不用每次去对促销级距。
+        </P>
+        <P>
+          月供尾数会<b style={{ color: COLOR.ink }}>抹整</b>(例如 447 抹成 440),差额乘以供期月数后并入头期,
+          方便客户记数字。所有计算都跑<b style={{ color: COLOR.ink }}>促销价</b>那一栏,原价只作参考。
+        </P>
+      </>),
+    },
+    {
+      key: "caveat", title: "⑦ 报价前一定要留意", hint: "会出错的地方都在这里",
+      body: (<>
+        <P>
+          <b style={{ color: COLOR.ink }}>1. 资料是快照,不是即时的。</b>
+          骨灰位截至 {NICHE_STATUS_UPDATED}、土葬截至 {BURIAL_STATUS_UPDATED}。每天都有成交,
+          落单前一定要跟主管核实那一格还在不在。
+        </P>
+        <P>
+          <b style={{ color: COLOR.ink }}>2. E 座和 N 座的 3B 层算不出价钱。</b>
+          公司的价目表在同一个位置写的是「Level 5」,两份文件对不上,要问过主管才好报(影响 6 格)。
+        </P>
+        <P>
+          <b style={{ color: COLOR.ink }}>3. 「分类格」看不出空／售。</b>
+          少数格子被价格分类色(例如 Special View)盖住,格子图会标「状态待确认」,遇到要另外问。
+        </P>
+        <P>
+          <b style={{ color: COLOR.ink }}>4. Zone A / AS 没有土葬位子图。</b>
+          价钱算得出来,但空／售要跟主管查。
+        </P>
+      </>),
+    },
+    {
+      key: "faq", title: "⑧ 常见问答", hint: "客户会这样问",
+      body: (<>
+        {[
+          ["单人位和双人位差在哪?", "双人位可以放两个骨灰坛(通常给夫妻),单人位一个。价钱不同,格子图最上面那行 D／S 就是标这个,点进计算器会自动选对。"],
+          ["为什么同一座价钱不一样?", "看三件事:哪一个 Hall、哪一面墙(正面 Frontage 比左右两翼贵)、第几层。计算器选好就会自动带出。"],
+          ["可以先订再慢慢付吗?", "可以,走分期:头期 40%,其余按净价分 18／24／36 个月,看总价落在哪一档。"],
+          ["回扣是现金退给客户吗?", "是从价钱里扣掉(净价 = 促销价 − 回扣),不是事后退现金。M、N、P 座没有回扣。"],
+          ["客户想先来看?", "跟公司预约,有专车导览,生命规划师陪同。自驾的话园区有宽敞停车场。"],
+        ].map(([q, a]) => (
+          <div key={q} style={{ marginTop: 10 }}>
+            <div style={{ color: COLOR.ink, fontFamily: FONT_BODY, fontWeight: 600, fontSize: 13 }}>{q}</div>
+            <P>{a}</P>
+          </div>
+        ))}
+      </>),
+    },
+  ];
+
+  return (
+    <div className="px-4 pt-4 pb-24">
+      <div className="flex items-start gap-1.5 mb-3 text-xs" style={{ color: COLOR.inkSoft, fontFamily: FONT_BODY, lineHeight: 1.6 }}>
+        <Info size={13} className="flex-shrink-0" style={{ marginTop: 2 }} />
+        <span>
+          点标题展开。内容来自公司自己的资料(地图看板、价目表、促销备忘),
+          空置数字是<b style={{ color: COLOR.ink }}>直接从这个 app 的库存资料算出来的</b>,不会跟格子图对不上。
+        </span>
+      </div>
+      <Accordion items={items} />
     </div>
   );
 }
@@ -2527,7 +2753,7 @@ const NAV = [
 const TITLES = {
   home: "Home 首页", search: "Find a Lot 查福位", calculator: "Price Calculator 价格计算",
   ai: "Ask 查询助手", more: "More 更多", promotions: "Promotions 促销",
-  knowledge: "Product Knowledge 常见问题", competitor: "Competitor 竞品比较",
+  knowledge: "Product Knowledge 产品资料", competitor: "Competitor 竞品比较",
   accounts: "Accounts 账号管理",
 };
 
@@ -2541,7 +2767,7 @@ function MoreScreen({ go, currentUser }) {
         onClick={() => go("accounts")}
       />
       <FeatureCard icon={Tag} label="促销 Promotions" desc="现金回扣详情" onClick={() => go("promotions")} />
-      <FeatureCard icon={BookOpen} label="产品资料 Knowledge" desc="常见问题" onClick={() => go("knowledge")} />
+      <FeatureCard icon={BookOpen} label="产品资料 Knowledge" desc="位置车程 · 园区设施 · 产品线 · 报价规则 · 常见问答" onClick={() => go("knowledge")} />
       <FeatureCard icon={Users} label="竞品比较 Competitor" desc="对比竞争对手" onClick={() => go("competitor")} />
       <Card style={{ marginTop: 8 }}>
         <div style={{ color: COLOR.ink, fontFamily: FONT_BODY, fontWeight: 600, fontSize: 13, marginBottom: 4 }}>关于这个版本</div>
