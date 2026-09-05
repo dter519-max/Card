@@ -3023,6 +3023,9 @@ const PARK_SIGHTS = [
     "1XB4I2Eh8TRGMPtRzI8Pcao0QDck8L1YZ", "11Expu3BrDxyZajmy5h6C-bTOZDV2xWEG",
     "1gv1_Zpix4j-a5wLwL2_SGWOG-QElRFUP", "12-g0ur8sJY6zzM10Mu2CsfjxdpliRER9",
     "17wh9M3Fv0RVCPDhU3e_wlnLncgD43yT8", "1b7Jt1639miISAMweHtE_LNDHqcUWQjF2"] },
+  // The map board prints this as "WASHROOM 軒雨閣". The office says call it 洗手间 and
+  // drop the other name, so the other name is not here. Drive has no photo of it.
+  { k: "washroom", cn: "洗手间 Washroom", photos: [] },
 ];
 
 // A Drive photo can fail for reasons we cannot see from here (no data, sharing turned
@@ -3111,7 +3114,7 @@ function ParkScreen({ go }) {
         {open.photos.length === 0 ? (
           <div className="rounded-xl px-3 py-3 mt-4" style={{ background: COLOR.panel2, border: `1px solid ${COLOR.line}` }}>
             <p style={{ color: COLOR.inkSoft, fontFamily: FONT_BODY, fontSize: 12.5, lineHeight: 1.7 }}>
-              公司的相片资料夹里<b style={{ color: COLOR.ink }}>没有这个座的照片</b>。
+              公司的相片资料夹里<b style={{ color: COLOR.ink }}>没有{open.id.startsWith("niche:") ? "这个座" : "这个"}的照片</b>。
               有拍到的话叫公司丢进 Drive,我再加进来。
             </p>
           </div>
