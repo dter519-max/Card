@@ -2171,20 +2171,98 @@ const DRIVE_TIMES = [
   ["实兆远／红土坎 Sitiawan / Lumut", "45 分钟"],
 ];
 
+// The company's own "九个最" positioning, off the 甲板山庄景点与设施 sheet (Jan 2022).
+// These are their marketing claims, presented as theirs -- not as independently checked fact.
+const PAPAN_SUPERLATIVES = [
+  ["最大", "霹雳州最大的风景墓园"],
+  ["最近", "最近怡保市中心;2 条出入口,直通高速公路"],
+  ["最美环境", "保留有山有水的大自然,多位著名风水师鉴定过的风水宝地"],
+  ["最多泊车位", "解决清明节塞车的烦恼"],
+  ["最多设施", "一站式:5 星级豪华殡仪馆、5 星级火化场、现代化追思礼堂、湖畔餐厅、导览车、24 小时保安、多处休息处、客服中心、大伯公庙"],
+  ["最多景观", "湖上约 39 尺石雕四面观音、普航殿(三圣大庙)、瀑布流水、天然湖景、江南特色步行街、佛祖与佛塔、曲桥凉亭、果园"],
+  ["最大的古建筑", "全霹雳公认拥有十多座美丽雄伟的古建筑群"],
+  ["最多样化产品", "一站式殡仪服务 + 骨灰莲位 + 福地"],
+  ["最宽阔的追思空间", "骨灰殿室内宽敞,福地周围开阔"],
+];
+
 const PARK_FACILITIES = [
-  ["24 小时保安", "有围篱与守卫设施,入口设守卫亭"],
-  ["专车导览", "导览车与专车接送参观服务"],
+  ["5 星级豪华殡仪馆", "迎接大厅、高贵追思灵堂、宴宾厅"],
+  ["5 星级火化场", "圣阳馆告别礼堂,冷气追思灵堂"],
+  ["现代化追思礼堂", "豪华告别厅、豪华舍金等候室"],
+  ["湖畔餐厅", "园区内用餐"],
+  ["导览车", "专车导览及参观服务"],
+  ["24 小时保安", "围篱与守卫设施,入口设守卫亭"],
+  ["客户服务中心", "前台有专人接待"],
   ["生命规划师团队", "专业团队陪同讲解"],
-  ["前台客服", "接待处有专人接待"],
-  ["大伯公（善福堂）", "园内供奉,可上香"],
-  ["宽敞停车场", "自驾来看位方便"],
-  ["火化场", "园区内设有火化场"],
+  ["大伯公庙（善福堂）", "园内供奉,可上香"],
+  ["宽敞停车场", "清明节也不怕塞"],
 ];
 
 const PARK_SCENERY = [
-  "天然湖景（面向水池）", "瀑布", "佛塔", "佛祖", "四面观音",
-  "凉亭", "步行街", "花园与休息处", "马头墙（徽派江南建筑）",
+  "湖上约 39 尺石雕四面观音", "普航殿（三圣大庙）", "天然湖景", "瀑布流水",
+  "佛祖与佛塔", "江南特色步行街", "曲桥凉亭", "果园",
+  "花园与休息处", "马头墙（江南苏杭建筑）",
 ];
+
+// 圆满契约 Funeral Service Package, off the FSP 佛教/道教配套简介 sheet (Jan 2022).
+// Prices verified against the sheet's own package pages; the sheet itself prints
+// "ALL PRICES ARE SUBJECT TO CHANGE WITHOUT PRIOR NOTICE", and it is four years old,
+// so the app says so rather than letting an agent quote these as current.
+const FSP_PACKAGES = [
+  { faith: "佛教 / 道教", note: "两晚在丧府或殡仪馆的奠礼服务（土葬／火葬）", rows: [
+    ["松柏之茂", "RM18,880"],
+    ["兰薰桂馥", "RM33,880"],
+    ["步步生莲", "RM43,880"],
+  ] },
+  { faith: "基督 / 天主教", note: "两晚在丧府或殡仪馆的奠礼服务（土葬／火化）", rows: [
+    ["圣洁·百合", "RM14,880"],
+    ["永恒·玫瑰", "RM21,880"],
+  ] },
+];
+
+const FSP_INCLUDES = [
+  "治丧协调", "申办／代办死亡证书、报案纸、下葬证书", "遗体接送",
+  "遗体保护（防腐、净身、更衣、化妆）", "优质寿衣", "棺木及骨灰瓮",
+  "专业音乐队", "佛教诵经／道家打斋", "精工制作纸扎",
+  "帛金簿与帛金箱", "轻便糕点、供斋供果、饮用水与花生", "出殡手帕、糖果礼品",
+  "女婿铭旗（1 支）", "安灵用具", "标准灵车／豪华灵车", "礼车送行",
+  "送殡冷气巴士", "出殡引导车", "专业服务团队", "追思照片 + USB 随身碟",
+];
+
+// 星洲日报摄影比赛得奖名单（到甲板山庄取景）。档案日期 2022 年 12 月。
+// A few filenames had the state truncated, so those are listed without one rather
+// than guessed at.
+const PHOTO_AWARDS = {
+  top: [
+    ["冠军 1st", "CHOONG MING HENG", "Perak"],
+    ["亚军 2nd", "TEH SEAK WAH", "Perak"],
+    ["季军 3rd", "CHIN POH CHECK", "Pinang"],
+  ],
+  merit: [
+    ["ANTONIO WEE TENSOONG", "Perak"], ["CHIN POH CHECK", "Pinang"],
+    ["LAI KOK HUA", ""], ["LEONG CHEE WAI", "Selangor"],
+    ["NGO KOK FOONG", "Perak"], ["Sidney Saw Lee Teng", "Perak"],
+    ["TAN SOON LONG", "Perak"], ["TEOH YEE YEN", "Pinang"],
+    ["WONG KOK WAH", "Pinang"], ["YEONG WENG HUANG", "Perak"],
+  ],
+  consolation: [
+    ["CHEN SOON LING", "Selangor"], ["CHOK WAN YEW", "Perak"],
+    ["CHOK WEI HOONG", "Perak"], ["CHONG WENG YEE", "Perak"],
+    ["CHOONG MING HENG", "Perak"], ["KANG WEI JIN", "Perak"],
+    ["KHOR SEONG WAH", "Perak"], ["KHOR WEI SIN", "Pinang"],
+    ["KWAN EOI KHUAN", "Perak"], ["LAI KOK HUA", ""],
+    ["LEE CHEE HOE", "Perak"], ["LEE SIEK FUN", "Perak"],
+    ["LEONG CHEE WAI", "Selangor"], ["LEONG JENN WAU", "Perak"],
+    ["LIM GUEK CHENG", "Perak"], ["Lim Kien Hock", "Pinang"],
+    ["LO SOOK MUN", ""], ["NG KIN HOO", "Perak"],
+    ["NG SEE LOON", "Perak"], ["NGO KOK FOONG", "Perak"],
+    ["Sidney Saw Lee Teng", "Perak"], ["TAN POH WAN", "Perak"],
+    ["TAN SOON LONG", "Perak"], ["TEOH SIANG HOOI", "Perak"],
+    ["THOONG LEE YONG", "Perak"], ["TONG TSE PENG", "Perak"],
+    ["WONG KOK WAH", "Pinang"], ["WONG PHANG CHEE", "Perak"],
+    ["WONG SIOW HUE", "Selangor"],
+  ],
+};
 
 function Accordion({ items }) {
   const [open, setOpen] = useState(items.length ? items[0].key : null);
@@ -2256,7 +2334,23 @@ function KnowledgeScreen() {
       </>),
     },
     {
-      key: "location", title: "② 位置与车程", hint: "客户最常问的第一题",
+      key: "why", title: "② 九个「最」", hint: "公司自己的定位,拿来讲卖点",
+      body: (<>
+        <P>以下是公司在自己的销售资料上打的九个「最」（<b style={{ color: COLOR.ink }}>公司的说法</b>,不是第三方认证）:</P>
+        {PAPAN_SUPERLATIVES.map(([k, v]) => (
+          <div key={k} style={{ marginTop: 8 }}>
+            <span className="px-2 py-0.5 rounded" style={{ background: "rgba(214,178,94,0.14)", color: COLOR.gold, border: `1px solid rgba(214,178,94,0.35)`, fontFamily: FONT_BODY, fontWeight: 700, fontSize: 11.5 }}>{k}</span>
+            <span style={{ color: COLOR.inkSoft, fontFamily: FONT_BODY, fontSize: 12.5, lineHeight: 1.7, marginLeft: 6 }}>{v}</span>
+          </div>
+        ))}
+        <P>
+          风水说法（资料原文）:甲板山庄被群山怀抱、山明水秀,四周藏风聚气;依山傍水,
+          远眺群山重叠,恰似蜿蜒起伏的巨龙横卧其中。
+        </P>
+      </>),
+    },
+    {
+      key: "location", title: "③ 位置与车程", hint: "客户最常问的第一题",
       body: (<>
         <P>以下车程是<b style={{ color: COLOR.ink }}>公司地图看板上印的</b>(约略值,实际看路况):</P>
         <Pair rows={DRIVE_TIMES} />
@@ -2268,14 +2362,14 @@ function KnowledgeScreen() {
       </>),
     },
     {
-      key: "facility", title: "③ 园区设施", hint: "带客户看位时可以讲的",
+      key: "facility", title: "④ 园区设施", hint: "带客户看位时可以讲的",
       body: (<>
         <Pair rows={PARK_FACILITIES} />
         <P>约参观:先跟公司预约,有<b style={{ color: COLOR.ink }}>专车导览</b>,生命规划师会陪同讲解。</P>
       </>),
     },
     {
-      key: "scenery", title: "④ 园区景观", hint: "讲风水与环境的卖点",
+      key: "scenery", title: "⑤ 园区景观", hint: "讲风水与环境的卖点",
       body: (<>
         <div className="flex gap-2 flex-wrap" style={{ marginTop: 6 }}>
           {PARK_SCENERY.map((s) => (
@@ -2290,7 +2384,7 @@ function KnowledgeScreen() {
       </>),
     },
     {
-      key: "product", title: "⑤ 产品线", hint: "有哪些座、哪些区",
+      key: "product", title: "⑥ 产品线", hint: "有哪些座、哪些区",
       body: (<>
         <P><b style={{ color: COLOR.ink }}>骨灰位 Niche</b> —— 目前还有空置的座:</P>
         <div className="flex gap-1.5 flex-wrap" style={{ marginTop: 6 }}>
@@ -2318,7 +2412,37 @@ function KnowledgeScreen() {
       </>),
     },
     {
-      key: "money", title: "⑥ 价格与付款规则", hint: "算钱的规矩",
+      key: "fsp", title: "⑦ 圆满契约 · 殡仪配套", hint: "FSP,骨灰位／福地以外的另一条产品线",
+      body: (<>
+        <P>
+          <b style={{ color: COLOR.ink }}>甲板生命关怀 · 圆满契约（Funeral Service Package）</b> ——
+          一站式殡仪服务配套,跟骨灰位／福地是分开卖的。
+        </P>
+        {FSP_PACKAGES.map((g) => (
+          <div key={g.faith} style={{ marginTop: 10 }}>
+            <div style={{ color: COLOR.ink, fontFamily: FONT_BODY, fontWeight: 700, fontSize: 13 }}>{g.faith}</div>
+            <div style={{ color: COLOR.inkSoft, fontFamily: FONT_BODY, fontSize: 11.5, marginTop: 2 }}>{g.note}</div>
+            <Pair rows={g.rows} />
+          </div>
+        ))}
+        <div className="rounded-xl mt-3 px-3 py-2.5" style={{ background: "rgba(224,138,74,0.10)", border: `1px solid rgba(224,138,74,0.35)` }}>
+          <p style={{ color: COLOR.orange, fontFamily: FONT_BODY, fontSize: 12.5, lineHeight: 1.7 }}>
+            ⚠️ 这些价钱来自 <b>2022 年 1 月</b>的配套简介,而且那份资料自己就写明
+            「价格如有更改,恕不另行通知」。<b>报价前一定要跟主管拿最新价目</b> ——
+            上面的数字只能拿来讲个大概。
+          </p>
+        </div>
+        <P>配套内容（两个宗教版本大致相同）:</P>
+        <div className="flex gap-1.5 flex-wrap" style={{ marginTop: 6 }}>
+          {FSP_INCLUDES.map((x) => (
+            <span key={x} className="px-2 py-1 rounded text-[11px]"
+              style={{ background: COLOR.panel2, color: COLOR.inkSoft, border: `1px solid ${COLOR.line}`, fontFamily: FONT_BODY }}>{x}</span>
+          ))}
+        </div>
+      </>),
+    },
+    {
+      key: "money", title: "⑧ 价格与付款规则", hint: "算钱的规矩",
       body: (<>
         <Pair rows={[
           ["现金回扣适用", "A / B / C / D / E / F / G / K / L 座"],
@@ -2340,7 +2464,7 @@ function KnowledgeScreen() {
       </>),
     },
     {
-      key: "caveat", title: "⑦ 报价前一定要留意", hint: "会出错的地方都在这里",
+      key: "caveat", title: "⑨ 报价前一定要留意", hint: "会出错的地方都在这里",
       body: (<>
         <P>
           <b style={{ color: COLOR.ink }}>1. 资料是快照,不是即时的。</b>
@@ -2362,7 +2486,46 @@ function KnowledgeScreen() {
       </>),
     },
     {
-      key: "faq", title: "⑧ 常见问答", hint: "客户会这样问",
+      key: "awards", title: "⑩ 星洲日报摄影比赛", hint: "42 幅得奖作品在甲板取景",
+      body: (<>
+        <P>
+          <b style={{ color: COLOR.ink }}>星洲日报</b>主办的摄影比赛,参赛者到<b style={{ color: COLOR.ink }}>甲板山庄取景</b>,
+          共 <b style={{ color: COLOR.ink }}>42 幅</b>作品得奖(得奖档案日期 2022 年 12 月)。
+          客户问「这里有什么特别」的时候,这是很好用的一句 —— 连报馆办比赛都选在这里拍。
+        </P>
+        <div style={{ marginTop: 8 }}>
+          {PHOTO_AWARDS.top.map(([prize, name, state]) => (
+            <div key={prize} className="flex items-baseline justify-between gap-3 py-1.5" style={{ borderTop: `1px solid ${COLOR.line}` }}>
+              <span style={{ color: COLOR.gold, fontFamily: FONT_BODY, fontSize: 12.5, fontWeight: 700 }}>{prize}</span>
+              <span className="flex-shrink-0" style={{ color: COLOR.ink, fontFamily: FONT_BODY, fontSize: 12.5 }}>
+                {name}{state && ` · ${state}`}
+              </span>
+            </div>
+          ))}
+        </div>
+        {[["优异奖 Merit", PHOTO_AWARDS.merit], ["安慰奖 Consolation", PHOTO_AWARDS.consolation]].map(([label, list]) => (
+          <div key={label} style={{ marginTop: 10 }}>
+            <div style={{ color: COLOR.ink, fontFamily: FONT_BODY, fontWeight: 700, fontSize: 12.5 }}>
+              {label} <span style={{ color: COLOR.inkSoft, fontWeight: 500 }}>· {list.length} 位</span>
+            </div>
+            <div className="flex gap-1.5 flex-wrap" style={{ marginTop: 5 }}>
+              {list.map(([name, state], i) => (
+                <span key={`${name}-${i}`} className="px-2 py-1 rounded text-[11px]"
+                  style={{ background: COLOR.panel2, color: COLOR.inkSoft, border: `1px solid ${COLOR.line}`, fontFamily: FONT_BODY }}>
+                  {name}{state && ` (${state})`}
+                </span>
+              ))}
+            </div>
+          </div>
+        ))}
+        <P>
+          有几位的州属在档案名里被截掉了,所以没写 —— 得奖作品的图在公司 Drive 的
+          「甲板得奖作品 watermark」资料夹,要给客户看的话从那里拿。
+        </P>
+      </>),
+    },
+    {
+      key: "faq", title: "⑪ 常见问答", hint: "客户会这样问",
       body: (<>
         {[
           ["单人位和双人位差在哪?", "双人位可以放两个骨灰坛(通常给夫妻),单人位一个。价钱不同,格子图最上面那行 D／S 就是标这个,点进计算器会自动选对。"],
