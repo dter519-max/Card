@@ -11,6 +11,8 @@ import {
   BookOpen,
   ChevronRight,
   ChevronLeft,
+  Image as ImageIcon,
+  ExternalLink,
   Plus,
   Trash2,
   Loader2,
@@ -1131,13 +1133,24 @@ function NicheAvailabilityView({ go }) {
   );
 }
 
-function SearchScreen({ go }) {
-  const [plotType, setPlotType] = useState("niche");
+function SearchScreen({ go, prefill }) {
+  const [plotType, setPlotType] = useState(prefill?.plotType || "niche");
   const [nicheView, setNicheView] = useState("search"); // "search" | "grid"
   const [burialView, setBurialView] = useState("search"); // "search" | "grid"
-  const [q, setQ] = useState("");
+  const [q, setQ] = useState(prefill?.q || "");
   const [blockFilter, setBlockFilter] = useState("");
   const [selected, setSelected] = useState([]); // multi-select for combined quotation
+
+  // Arriving from the park guide ("show me Block A's free niches"). The nonce changes on
+  // every jump, so tapping the same block twice re-runs it instead of doing nothing.
+  useEffect(() => {
+    if (!prefill) return;
+    setPlotType(prefill.plotType || "niche");
+    if (prefill.plotType === "burial") setBurialView("search"); else setNicheView("search");
+    setQ(prefill.q || "");
+    setBlockFilter("");
+    setSelected([]);
+  }, [prefill?.n]);
 
   const search = useMemo(() => {
     const parsed = parseNicheQuery(q);
@@ -2875,6 +2888,307 @@ function FSPScreen() {
   );
 }
 
+/* ============================ 园区导览 PARK GUIDE ===============================
+   Tap a block or zone, see the company's own photos of it.
+
+   The photos are NOT bundled. They are served from the company's Drive folder by
+   file id, because this whole app ships as one HTML file and the originals run
+   5-160MB each -- inlining even a handful would make the app unusable on a phone.
+   That works only because those files are shared "anyone with the link"; if the
+   office ever turns that off the images stop loading, so every card falls back to
+   a "在 Drive 打开" link and says so rather than showing a broken box. It also
+   means photos need a data connection, unlike the rest of the app.
+
+   The Chinese hall names come from the company's NICHE FLOOR PLAN, which is also
+   where the niche codes come from. The park map board prints a different set of
+   names for the same letters; until someone in the office says which is current,
+   the floor plan wins, because that is the document the rest of this app is built
+   on. Blocks K and P have no photo folder, and the map board shows a Block H that
+   appears in neither the floor plan nor the price lists -- all noted, not guessed.
+=================================================================================== */
+const DRIVE_PHOTOS_FOLDER = "1MluJrfFY2hCN69q8bJ3Z_C5omWTqQBwN";
+const driveImg = (id, w = 900) => `https://drive.google.com/thumbnail?id=${id}&sz=w${w}`;
+const driveFolder = (id) => `https://drive.google.com/drive/folders/${id}`;
+
+const PARK_BLOCKS = [
+  { k: "A", cn: "慈慧阁", folder: "1yRehmVZeYREKfNVe-wrBKd9_KY6gjPU2", photos: [
+    "14YJ-9jBsnvdzimHaHU7wWXvOlZPAjlxW", "1PeAYhvtX_3froL0W6v_lWjZ2tRfjGRBu",
+    "1g0DmrSwlg6DWCiE_vL7bavea7ol-EgyQ", "1gkeP74CTmY2DiBSes6odYuwgyNxlf9UW"] },
+  { k: "B", cn: "静宁阁", folder: "1oJtHlROYSgs1wFYoVGII8d9O7EGN11fG", photos: [
+    "19egeAHreMpKAUESbOldE0-IfNFng2IK3", "1ML3_JBUF-05wU0FNVeSsGr-20qc7Cbc8",
+    "1cuOrVbqC3fi12DzVfYrO6XxrkJhgB20W", "1F3NkdtR5FFZOamErAi5jUwjnWxUk3JAv",
+    "1CwIXX2KQ7eiAJM5QbvLTGYsZZxEBMtnT"] },
+  { k: "C", cn: "三善院", folder: "1sVJwKU8P86fbfKWg1NIpVIdOz2rygWIa", photos: [
+    "1INHaqCIV_TfjZnbe_JjqmRHupSfhp0Bj", "1CRHgElM8sDfhfRRSi4n2_OuhYmjRpHX8",
+    "1yyPwhKkizdbJoYNy-IS_dT_EL9LOTf6U", "1Hz7PeQMyXApYBo117ah7hjJKm15EN71W",
+    "14UyoZ1MKQkAtLPxtcveFOw_UVShIvQhj", "1Rx83sSTssJffjNjx_Xzj4YVcMDEpQNeN"] },
+  { k: "D", cn: "百孝阁", folder: "1TGemHHD6tDUF-PRl5AMzNRRvunBwa1jS", photos: [
+    "14n5W-PY22wK96EdI_r4Pv42l91MDgni-", "1IpGky9kEnP7sp6BpsRMiT9GfcKcI3iHo",
+    "1AwES99wyFBA-YmdWMMAKfZnmws5XjxB_"], note: "第 2、3 张是 D 座和 M 座一起拍的" },
+  { k: "E", cn: "怀德院", folder: "1MtzTwP11BvWh3bwCxmJ7gvJOUqIvpjZQ", photos: [
+    "1CiidGsoqWZ3GBLNbAmDqkZosUN2sFUA-", "18e_3IRH8kI_u_HoRkMiDtr9wt2ZTUOiG",
+    "1r_LGjJqbGdq3i_vR-EpnfE2Hkk5-4fQR", "1IJ1IUMTwZD4Ycb6MNftwKSkesyJndIaN"] },
+  { k: "F", cn: "朝阳阁", folder: "19_45Gu3-LXIMVdwuPSx9O1UYaSbEy3yL", photos: [
+    "1pp1y203SS6TwQyTz4SNHmsPeuv5DQibY", "1fXe-vrIYZUr0pWB96BrfM6Mc28nBMxqV",
+    "1AA5R-OvbOy-LpZSGWG7qTrn7_dUwwDuN", "1wZjXrTFPaqFG4KaWhJtPYKJxq-Mc5qJk",
+    "1fP7m7lr5TIEj_QYP3BVmP7F-qPbNL26I", "1oNuN7fGTeR-7Ag3t1tbt0322GDW7Hdcs"] },
+  { k: "G", cn: "清宁院", folder: "12hkaGIOFEk7bEpmC8nGocbDLEp0RC_9m", photos: [
+    "13TX9HYj5DprDERiaq2JWXn3L1nLXbNgB", "1wRFmCEFZAlj0vr3Z3eH4OxC4dMVbBBQX",
+    "1Jf7Ml5FaMcdepwjUKfywI8raRjFg87fJ", "1yqBqjlR6k0EwIn0t7ab3XyvEem3rBxmn",
+    "1rEb0BWnZ37QItIDsqiEy-Ly4D7mGpU0E", "1SDjJZNAxAMPhW1iO9Il5WxYlsl66Oyyt",
+    "19-05I6kxltWk7DljfSS6Jt7zDqA_1ZCo", "1WfJPdLwQiFNEF6Rnme0G4rW1EgqwmsE4",
+    "1ubCS1BIJMBOmCO2S7vxgzVw7TEXDMsjl", "1CoNxacimkvN7JnNQO_6cv5vfdp0gwvqE",
+    "1aNuAlWsEaabcdzQUSoSVUC0tu49oy5YE", "1j-z4UQucmSgI35n5JNkRe5aF4YZdepJ_"],
+    note: "最后一张是双人位的门板设计" },
+  { k: "K", cn: "圣宝院", folder: null, photos: [] },
+  { k: "L", cn: "存孝院", folder: "19Gn6RO19NlfYVTvygG0vEdh3yKgqrsJ3", photos: [
+    "1BOvayxi94dmwvYyt41oG_xnaiNXsiXvm", "1yWcnIOJ9BsvxJq1-RAAik7YpXNLyd7LA",
+    "1CgRE50e3JM1F7kxYU-fOD4HMBJx3QNGO", "1Vn3U5rD-tiQ6b3H-hEye6iQixI98N5Kn",
+    "1bRCyVq5zYvp_YnSlZYdzYCehIPeRaja5", "1at6_iehHoAjNRivZ6D6_QhRPKqzI_7JR",
+    "1PUZWWom4AFcTEPbQdTxRXSuLS9d2EkrQ", "1wy0X4CmJUWn_bnoaj5CTT6gxFlX5nlww",
+    "16Cx7aGWg-kupPPlBHbr2OXlduxQ-Mb3g", "1aSpA9EH3ZayPBREmjR-BoxxTQBYpRHy8",
+    "1Vhkht_6BcPWL_RAqyqmCdz_FndUa6igw"], note: "最后一张是双人位的门板设计" },
+  { k: "M", cn: "三福院", folder: "1_eoJJVqwEDpFoRIQkdBcb-YdZkzpzxst", photos: [
+    "1hgDfE9K04tdOwNcRGbTA2JRMkcK66q0I", "1DBlhgz3yryS2C8bu0rjATYskqDIPtifh",
+    "108Chk7-vcHJKDMpyqtVhG7TQtEuoomYR"] },
+  { k: "N", cn: "德阳院", folder: "1UpXAnfNhAq0xzZI-Yb05RH2p5oWzHdBy", photos: [
+    "1q_LHNS-cwWSuN0ueuhu3ARqdrPX-BoSU", "11BHae0oIYWItLMkrIndU8bA7gcCNp4Kg",
+    "1sjKnN03lwQGW511TzpqSxQkxo1uSAp06", "13iqaMgklyeGHscMe36doiaJpb2uHlh5h",
+    "1HbOMKYsyMfcr6PooTPIH5Aa8k9Gm5ThE"], note: "最后一张是福位样本" },
+  { k: "P", cn: "竹林阁", folder: null, photos: [] },
+];
+
+// Zone C's folder holds both CA and CB, so the two share it and take the shots that
+// name them. DB13 is its own product but sits inside Zone DB, so it borrows DB's.
+const PARK_ZONES = [
+  { k: "A", cn: "思亲园", folder: "1lXTZyWh_wonPjDKefnaT70uV4Nw8Ej4k", photos: [
+    "1XX3DLs9rtGpjlgKX0QzBBH56WkKL0pu5", "1C6_TOvJeCQeEQIYgS3uYWhmgD63dvoJP",
+    "1Ku1c2OrlXgd0bFlOFJhjtKp1fzEK7Xnz"] },
+  { k: "B", cn: "思孝园", folder: "1gEsZE56Kei-JoGxa3_FSlvKbXMftzCcA", photos: [
+    "1wLfevTeXAV4m0wfx1I4RmVyDrdPc56pE", "127NuAfCsJDsq3aQ-m9mB2EBQXWlaJiul"] },
+  { k: "CA", cn: "聚福园 CA", folder: "1ZUu3TT2KimABmpDGpP9Eb4Vw63r39UeS", photos: [
+    "1frawAybZsuitXJXB7MtzCHAwdl_dCyaR", "1-O9vXtxO-RRHqO3UAfwMiMWbjbgBu3PZ",
+    "1qUFlvAp6AsPbIJLxOGXVoKMVzcaNkWWV", "191kZe833lVOMjr7GjzgtTf4OCMR56nq_"] },
+  { k: "CB", cn: "聚福园 CB", folder: "1ZUu3TT2KimABmpDGpP9Eb4Vw63r39UeS", photos: [
+    "11a11RTP5mOHanujVJNAUnwL6QIXKeYuw", "1qUFlvAp6AsPbIJLxOGXVoKMVzcaNkWWV"] },
+  { k: "DA", cn: "聚孝园 DA · 骨灰土葬", folder: "1_AJLG6nZm0BEVXYgvqbXZ_XmkZgZzhgY", photos: [
+    "13IAz72LuwIQoJBL2_olqmo-wVyI8oKEn", "1P0sGvLPzHQrTSrIacMpczSK3pS2w1D8i",
+    "1sUY2tjja_LHlbirRJw8TybHWn1tgnRwR"] },
+  { k: "DB", cn: "聚孝园 DB · 第 1–12 行", folder: "1UiWx2jGcuTlLpPqyK9KPomDn5qk75G84", photos: [
+    "1KQ-Rc7O72Mo10GOVr87F2rKdSCJuC3a3", "1k4WrkC1B4vQD1l0TrH93tZ9WmCBOz0HD",
+    "1RnllgdngqM6hsldaAhx2NMabrNbUSLMe"] },
+  { k: "DB13", cn: "聚孝园 DB · 第 13 行单人", folder: "1UiWx2jGcuTlLpPqyK9KPomDn5qk75G84", photos: [
+    "1KQ-Rc7O72Mo10GOVr87F2rKdSCJuC3a3", "1k4WrkC1B4vQD1l0TrH93tZ9WmCBOz0HD"],
+    note: "跟 DB 同一区,但产品不同（编号 DBS-),照片是整个 DB 区的" },
+  { k: "IZ", cn: "帝苑 Imperial", folder: "1QK5aKlgMGPDSyUUcZfoPeolugqM_RSdu", photos: [
+    "17H7hsdXfxjtBVbStey2LeFijXJtBvk5p", "1Y4YmFHipwOess_2O46tOxOYFrdhpC2vZ",
+    "1lvFxy_kR4IFMDFwuTUwZ3xOlb6lAvUNM", "1BtIEMJFPdK6xljqZ_doqUmT7F9ADkGQs",
+    "1zb93cH9TQbLCDBH9NcpEhH5qG3I2i6l_", "15UGXSUup3n43wTqggOdNXEUeb2RM-Ydb",
+    "1GJ1byg8N7HG7_gy5iXWiU7PK7IEZo9_Y"] },
+];
+
+const PARK_SIGHTS = [
+  { k: "entrance", cn: "大门与守卫室", photos: ["18tpPxgcBA6fRNRDW8jBQEsf5a_BpfKkA"] },
+  { k: "aerial", cn: "江南古镇 + 福地全景", photos: ["1T2Sc7XdmRoZmPpepXeWy_rKiUI-hiWN4"] },
+  { k: "pagoda", cn: "佛塔与佛祖", photos: [
+    "1OVvDnDKnfq5pzfdwlGCeClnwX0j54FIR", "1bAhU-LwgBiqyzOtCF0RLNgFFhh28G93p",
+    "1on-UQUUtlgpAWpCvsn92TgOf8zZw7lxw", "1IGkxgpz7yKNOQzwIp4ceZEywLZi5SopF",
+    "1LSBmDelkCcnm2cQ5bM3HkJnnHB6bhaOQ", "13EFjNjVPG2LXYB2Bo4O2Bw_l9GACPa46",
+    "1QVFuRL4-ptfFTkuXxt83T2WkYVhcwMXz", "1pslNjMiDQveeE3G51wXFqNj-9Zz-ZHGT"] },
+  { k: "guanyin", cn: "四面观音", photos: [
+    "10a6vnSulqa0Tpvrw8Nc-rWCFJai_hzRm", "15umrLzgxD3K-3mCYVbwR_T09PwyKEoG-",
+    "1Bly0GnJ-WhzRpgopoSMH3SZY8BPnr7Bf", "12WoTlb-SGjPDjwYCQ_zbL_AdnybNbUPi",
+    "1tUwXUdYoyG_fImSi8wiQYMxfCpkLH0Yb", "1R2cG8-aKDkmYz5jNk6JZ1C8sqc9Z4in4"] },
+  { k: "lake", cn: "天然湖景与凉亭", photos: [
+    "1Onr2_TWpy4aZi_ZMAiQG562H2KuybZM2", "190tRfXzZwBoJsbDK8rafl1H-_g37bf0E",
+    "1gwH752ertRLNU7OdjA6SG8elDsOvWQ0g"] },
+  { k: "waterfall", cn: "瀑布", photos: ["1TU0mpyVJHdf-fVGAdHgz42uDiJBB5r2m"] },
+  { k: "street", cn: "步行街", photos: [
+    "1BW3hXi_5CjDqrN16yVHOtFicbPP1yoNT", "13IHLx_IQt3lJ3aeDywacdkuJhfzmyXiG",
+    "1e5D-ZJpKdBzNOlyrWZ0SVI0-HXBDhlxd", "1mcAn8Ua_oEamHldZScCiUj8lRvWk-Hzr"] },
+  { k: "garden", cn: "花园与休息处", photos: [
+    "1AUJLpBWAvAWVosUeidyAioX7W4p31Ot0", "14lgCiyUY8geoiuG1z2mrA--k3a2RRV2S"] },
+  { k: "shanfu", cn: "善福堂 · 大伯公", photos: [
+    "1Kzm4h9q5LkACtdOGURGiG4Bx-AEGeCix", "1ZEPqJsXLvTtIol_lVXIfHrIYsm-gvgCj"] },
+  { k: "crema", cn: "火化场 Crematorium", folder: "1Kc8txnC3BZbwa0yAsGRen9WP-438QIHx", photos: [
+    "1GFxsXv4X7OnnWsTF9nFtBtaui3jcG9PO", "1JvZVAy9TvQGCGbJ0rS6GBpLefkRi38H9",
+    "1faTfLvtkQKaeknfgyye6QXM21FMt-utg", "1HIxSkUTNW_6PJzHdFqRYoELEGZ_Ies9D",
+    "1SJc4kqNDbcDrWqArQoQbnInCy24VBW7e", "1sDOfJ3_GlwIx---vsfPMWEAb-clD6thH"] },
+  { k: "carpark", cn: "宽敞停车场", photos: ["1xj9Y4bXjbcRpbCIrND-qP04jpdnFNZEN"] },
+  { k: "service", cn: "保安 · 前台 · 导览车 · 规划师团队",
+    folder: "1IN4cpWao3MeKzQr7GiegYLc3K7ez859E", photos: [
+    "1MBrsSnr-g9LKPDKcI8r6d4xgx0a7jTL1", "1529LkijmicURdTB4Ayb5_GTo-08dyiXr",
+    "1XB4I2Eh8TRGMPtRzI8Pcao0QDck8L1YZ", "11Expu3BrDxyZajmy5h6C-bTOZDV2xWEG",
+    "1gv1_Zpix4j-a5wLwL2_SGWOG-QElRFUP", "12-g0ur8sJY6zzM10Mu2CsfjxdpliRER9",
+    "17wh9M3Fv0RVCPDhU3e_wlnLncgD43yT8", "1b7Jt1639miISAMweHtE_LNDHqcUWQjF2"] },
+];
+
+// A Drive photo can fail for reasons we cannot see from here (no data, sharing turned
+// off, file moved). Say which, rather than leaving a grey rectangle.
+function DrivePhoto({ id, alt, height, onClick }) {
+  const [failed, setFailed] = useState(false);
+  if (failed) {
+    return (
+      <div className="w-full flex flex-col items-center justify-center gap-1"
+        style={{ height, background: COLOR.panel2, borderRadius: 10, border: `1px solid ${COLOR.line}` }}>
+        <ImageIcon size={16} color={COLOR.inkSoft} />
+        <span style={{ color: COLOR.inkSoft, fontFamily: FONT_BODY, fontSize: 10.5 }}>载入不到</span>
+      </div>
+    );
+  }
+  return (
+    <img src={driveImg(id)} alt={alt} loading="lazy" onClick={onClick}
+      onError={() => setFailed(true)}
+      style={{ width: "100%", height, objectFit: "cover", borderRadius: 10,
+        border: `1px solid ${COLOR.line}`, background: COLOR.panel2, cursor: onClick ? "zoom-in" : "default" }} />
+  );
+}
+
+function ParkScreen({ go }) {
+  const [openKey, setOpenKey] = useState(null);   // "niche:A" | "burial:DA" | "sight:lake"
+  const [zoom, setZoom] = useState(null);
+
+  const nicheFree = (b) => NICHE_AVAIL.filter((r) => r.block === b).length;
+  const burialFree = (z) => BURIAL_AVAIL.filter((r) => r.zone === z).length;
+
+  const groups = [
+    { title: "骨灰位 Niche · 12 个座", items: PARK_BLOCKS.map((b) => ({
+        ...b, id: "niche:" + b.k, title: `Block ${b.k}`, sub: b.cn,
+        free: nicheFree(b.k), unit: "个空置福位",
+        jump: () => go("search", null, null, null, { plotType: "niche", q: b.k }) })) },
+    { title: "土葬 Burial · 8 个区", items: PARK_ZONES.map((z) => ({
+        ...z, id: "burial:" + z.k, title: `Zone ${z.k}`, sub: z.cn,
+        free: burialFree(z.k), unit: "个空置土葬位",
+        jump: () => go("search", null, null, null, { plotType: "burial", q: z.k }) })) },
+    { title: "园区景观与设施", items: PARK_SIGHTS.map((s) => ({
+        ...s, id: "sight:" + s.k, title: s.cn, sub: "", free: null })) },
+  ];
+
+  const all = groups.flatMap((g) => g.items);
+  const open = all.find((x) => x.id === openKey) || null;
+
+  if (open) {
+    return (
+      <div className="px-4 pt-4 pb-24">
+        <button onClick={() => setOpenKey(null)} className="flex items-center gap-1 mb-3"
+          style={{ color: COLOR.gold, fontFamily: FONT_BODY, fontSize: 13 }}>
+          <ChevronLeft size={16} /> 回园区导览
+        </button>
+
+        <div style={{ color: COLOR.ink, fontFamily: FONT_DISPLAY, fontWeight: 700, fontSize: 20 }}>{open.title}</div>
+        {open.sub && <div style={{ color: COLOR.gold, fontFamily: FONT_BODY, fontSize: 13.5, marginTop: 2 }}>{open.sub}</div>}
+        {open.free !== null && (
+          <div style={{ color: COLOR.inkSoft, fontFamily: FONT_BODY, fontSize: 12.5, marginTop: 4 }}>
+            现在还有 <b style={{ color: open.free ? COLOR.green : COLOR.orange }}>{open.free}</b> {open.unit}
+          </div>
+        )}
+
+        {open.jump && open.free > 0 && (
+          <button onClick={open.jump} className="w-full rounded-xl px-3 py-2.5 mt-3"
+            style={{ background: COLOR.gold, color: "#161512", fontFamily: FONT_BODY, fontWeight: 700, fontSize: 13 }}>
+            去查 {open.title} 的空位
+          </button>
+        )}
+
+        {open.note && (
+          <p style={{ color: COLOR.inkSoft, fontFamily: FONT_BODY, fontSize: 11.5, lineHeight: 1.7, marginTop: 10 }}>
+            {open.note}
+          </p>
+        )}
+
+        {open.photos.length === 0 ? (
+          <div className="rounded-xl px-3 py-3 mt-4" style={{ background: COLOR.panel2, border: `1px solid ${COLOR.line}` }}>
+            <p style={{ color: COLOR.inkSoft, fontFamily: FONT_BODY, fontSize: 12.5, lineHeight: 1.7 }}>
+              公司的相片资料夹里<b style={{ color: COLOR.ink }}>没有这个座的照片</b>。
+              有拍到的话叫公司丢进 Drive,我再加进来。
+            </p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 gap-2 mt-4">
+            {open.photos.map((pid) => (
+              <DrivePhoto key={pid} id={pid} alt={open.title} height={130} onClick={() => setZoom(pid)} />
+            ))}
+          </div>
+        )}
+
+        {open.folder && (
+          <a href={driveFolder(open.folder)} target="_blank" rel="noreferrer"
+            className="flex items-center justify-center gap-1.5 rounded-xl px-3 py-2.5 mt-3"
+            style={{ background: COLOR.panel2, border: `1px solid ${COLOR.line}`, color: COLOR.inkSoft, fontFamily: FONT_BODY, fontSize: 12.5 }}>
+            在 Drive 打开原图资料夹 <ExternalLink size={13} />
+          </a>
+        )}
+
+        {zoom && (
+          <div onClick={() => setZoom(null)} className="fixed inset-0 z-50 flex items-center justify-center p-3"
+            style={{ background: "rgba(0,0,0,0.88)" }}>
+            <img src={driveImg(zoom, 1600)} alt={open.title}
+              style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain", borderRadius: 8 }} />
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="px-4 pt-4 pb-24">
+      <div className="flex items-start gap-1.5 mb-3 text-xs" style={{ color: COLOR.inkSoft, fontFamily: FONT_BODY, lineHeight: 1.6 }}>
+        <Info size={13} className="flex-shrink-0" style={{ marginTop: 2 }} />
+        <span>
+          点进每个座／每个区看公司拍的照片。照片是从公司的 Google Drive 直接读的,
+          <b style={{ color: COLOR.ink }}>手机要有网络</b>才看得到（其他功能没网络也能用）。
+        </span>
+      </div>
+
+      {groups.map((g) => (
+        <div key={g.title} className="mb-5">
+          <div style={{ color: COLOR.ink, fontFamily: FONT_BODY, fontWeight: 700, fontSize: 13, marginBottom: 8 }}>{g.title}</div>
+          <div className="grid grid-cols-2 gap-2.5">
+            {g.items.map((it) => (
+              <button key={it.id} onClick={() => setOpenKey(it.id)} className="text-left rounded-xl overflow-hidden"
+                style={{ border: `1px solid ${COLOR.line}`, background: COLOR.panel }}>
+                {it.photos.length ? (
+                  <DrivePhoto id={it.photos[0]} alt={it.title} height={92} />
+                ) : (
+                  <div className="w-full flex items-center justify-center" style={{ height: 92, background: COLOR.panel2 }}>
+                    <ImageIcon size={17} color={COLOR.inkSoft} />
+                  </div>
+                )}
+                <div className="px-2.5 py-2">
+                  <div style={{ color: COLOR.ink, fontFamily: FONT_BODY, fontWeight: 700, fontSize: 12.5 }}>{it.title}</div>
+                  {it.sub && <div style={{ color: COLOR.gold, fontFamily: FONT_BODY, fontSize: 11 }}>{it.sub}</div>}
+                  <div style={{ color: COLOR.inkSoft, fontFamily: FONT_BODY, fontSize: 10.5, marginTop: 2 }}>
+                    {it.free === null
+                      ? `${it.photos.length} 张照片`
+                      : `空置 ${it.free} · ${it.photos.length} 张照片`}
+                  </div>
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      ))}
+
+      <Card>
+        <div style={{ color: COLOR.ink, fontFamily: FONT_BODY, fontWeight: 600, fontSize: 13 }}>关于这些名字和照片</div>
+        <p style={{ color: COLOR.inkSoft, fontFamily: FONT_BODY, fontSize: 12, lineHeight: 1.75, marginTop: 6 }}>
+          中文座名是照<b style={{ color: COLOR.ink }}>公司的福位楼层图</b>写的（编号也是从那份来的）。
+          园区那块地图看板上,同样的字母印的是另一套名字 —— 两份对不上,
+          <b style={{ color: COLOR.ink }}>报之前先跟公司确认一下</b>,我没有自己选一个。
+          <br />
+          K 座和 P 座,Drive 里<b style={{ color: COLOR.ink }}>没有照片资料夹</b>。
+          地图看板上还有一个 Block H,楼层图和价目表里都没有,所以这里也没有列。
+        </p>
+        <a href={driveFolder(DRIVE_PHOTOS_FOLDER)} target="_blank" rel="noreferrer"
+          className="flex items-center justify-center gap-1.5 rounded-xl px-3 py-2.5 mt-3"
+          style={{ background: COLOR.panel2, border: `1px solid ${COLOR.line}`, color: COLOR.inkSoft, fontFamily: FONT_BODY, fontSize: 12.5 }}>
+          在 Drive 打开整个相片资料夹 <ExternalLink size={13} />
+        </a>
+      </Card>
+    </div>
+  );
+}
+
 /* ============================ APP SHELL ================================= */
 /* ============================ ACCOUNTS / LOGIN ===================================
    IMPORTANT — what this login is and isn't:
@@ -3223,7 +3537,7 @@ const TITLES = {
   home: "Home 首页", search: "Find a Lot 查福位", calculator: "Price Calculator 价格计算",
   ai: "Ask 查询助手", more: "More 更多", promotions: "Promotions 促销",
   knowledge: "Product Knowledge 产品资料", fsp: "FSP 圆满契约配套",
-  accounts: "Accounts 账号管理",
+  park: "Park Guide 园区导览", accounts: "Accounts 账号管理",
 };
 
 function MoreScreen({ go, currentUser }) {
@@ -3235,6 +3549,7 @@ function MoreScreen({ go, currentUser }) {
         desc={currentUser?.role === "admin" ? `${currentUser.email} · 管理员` : currentUser?.email}
         onClick={() => go("accounts")}
       />
+      <FeatureCard icon={ImageIcon} label="园区导览 Park Guide" desc="每个座 / 每个区的照片 · 景观与设施" onClick={() => go("park")} />
       <FeatureCard icon={Users} label="FSP 配套 Funeral Service" desc="圆满契约 · 预购价 / 即用价 / EPP 分期" onClick={() => go("fsp")} />
       <FeatureCard icon={Tag} label="促销 Promotions" desc="现金回扣详情" onClick={() => go("promotions")} />
       <FeatureCard icon={BookOpen} label="产品资料 Knowledge" desc="位置车程 · 园区设施 · 产品线 · 报价规则 · 常见问答" onClick={() => go("knowledge")} />
@@ -3259,6 +3574,8 @@ export default function App() {
   const [tab, setTab] = useState("home");
   const [calcPrefill, setCalcPrefill] = useState(null);
   const [calcMulti, setCalcMulti] = useState(null);
+  const [searchPrefill, setSearchPrefill] = useState(null);
+  const searchNonce = useRef(0);
   const [calcMode, setCalcMode] = useState("niche");
 
   const [users, setUsers] = useState([]);
@@ -3301,16 +3618,19 @@ export default function App() {
     setTab("home");
   };
 
-  const go = (key, prefillData, multiData, calculatorMode) => {
+  const go = (key, prefillData, multiData, calculatorMode, searchData) => {
     if (key === "calculator") {
       setCalcPrefill(prefillData || null);
       setCalcMulti(multiData && multiData.length > 0 ? multiData : null);
       if (calculatorMode) setCalcMode(calculatorMode);
     }
+    // Bump the token even for an identical query, so tapping the same block twice
+    // still re-runs the search instead of looking like nothing happened.
+    if (key === "search") setSearchPrefill(searchData ? { ...searchData, n: searchNonce.current++ } : null);
     setTab(key);
   };
 
-  const subScreen = ["promotions", "knowledge", "fsp", "accounts"].includes(tab);
+  const subScreen = ["promotions", "knowledge", "fsp", "park", "accounts"].includes(tab);
 
   const fontImport = (
     <style>{`@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600;700&display=swap');`}</style>
@@ -3343,7 +3663,7 @@ export default function App() {
         <TopBar title={TITLES[tab]} onBack={subScreen ? () => setTab("home") : null} right={<AlphaMark size={22} />} />
 
         {tab === "home" && <HomeScreen go={go} />}
-        {tab === "search" && <SearchScreen go={go} />}
+        {tab === "search" && <SearchScreen go={go} prefill={searchPrefill} />}
         {tab === "calculator" && <CalculatorScreen prefill={calcPrefill} multiItems={calcMulti} mode={calcMode} setMode={setCalcMode} />}
         {tab === "ai" && <LotAssistantScreen go={go} />}
         {tab === "more" && <MoreScreen go={go} currentUser={currentUser} />}
@@ -3353,6 +3673,7 @@ export default function App() {
         {tab === "promotions" && <PromotionsScreen />}
         {tab === "knowledge" && <KnowledgeScreen />}
         {tab === "fsp" && <FSPScreen />}
+        {tab === "park" && <ParkScreen go={go} />}
 
         {!subScreen && (
           <div className="fixed bottom-0 left-0 right-0 flex items-center justify-around py-2 z-20" style={{ background: COLOR.panel, borderTop: `1px solid ${COLOR.line}` }}>
