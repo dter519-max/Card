@@ -2668,7 +2668,7 @@ const FSP_2025 = [
     note: "念经／打斋只是一个晚上（佛教／广东／客家）",
     an: { sell: "26,880", price: "22,880", rebate: "1,000", promo: "21,880" },
     epp: { upfront: "1,800", tenure: "48", first: "515", each: "395" } },
-  { key: "ORCHID", cn: "兰薰桂馥", en: "Orchid", faith: "buddha",
+  { key: "ORCHID", cn: "兰熏桂馥", en: "Orchid", faith: "buddha",
     list: "33,880", rebate: "2,000", promo: "24,880", pre: "26,880",
     months: "60 期", tenure: "4年+1年", down: "5,080", monthly: "330", daily: "11",
     note: "念经／打斋两个晚上（佛教／广东）",
@@ -2703,6 +2703,10 @@ const FSP_2025 = [
 // Reproduced as the deck prints them, typos and all -- correcting a religious group's
 // name on our own initiative is not ours to do.
 const FSP_OTHER_FAITHS = "FREE THINKER、一贯道、创价学会、真佛中、日连正宗、密宗、巴哈伊、斯里兰卡";
+
+// Prices above are strings ("17,880") because that is how the deck prints them; this
+// turns one back into a number so the card can show how much the promotion saves.
+const rm = (s) => Number(String(s).replace(/[^\d.]/g, "")) || 0;
 
 function FSPScreen() {
   const [mode, setMode] = useState("pre");   // pre | asneed | epp
@@ -2780,20 +2784,36 @@ function FSPScreen() {
           <div className="space-y-2">
             {list.map((p) => {
               const open = openKey === p.key;
-              const headline = mode === "asneed" ? p.an.promo : mode === "epp" ? p.epp.upfront : p.promo;
-              const headlineLabel = mode === "epp" ? "Upfront" : "";
+              // The deck leads with two numbers on every package page: the list price in the
+              // black box top-left, and the promotion price at the bottom. Show both on the
+              // card so the agent reads the discount without opening anything.
+              const listPrice = mode === "asneed" ? p.an.sell : p.list;
+              const offerPrice = mode === "asneed" ? p.an.promo : p.promo;
               return (
                 <div key={p.key} className="rounded-xl overflow-hidden" style={{ border: `1px solid ${COLOR.line}` }}>
                   <button onClick={() => setOpenKey(open ? null : p.key)}
-                    className="w-full px-3.5 py-3 flex items-center justify-between text-left"
+                    className="w-full px-3.5 py-3 flex items-center justify-between gap-3 text-left"
                     style={{ background: open ? COLOR.panel2 : "transparent" }}>
                     <span style={{ minWidth: 0 }}>
                       <span style={{ color: COLOR.ink, fontFamily: FONT_DISPLAY, fontWeight: 700, fontSize: 14.5 }}>{p.cn}</span>
                       <span style={{ color: COLOR.inkSoft, fontFamily: FONT_BODY, fontSize: 11.5, marginLeft: 6 }}>{p.en}</span>
+                      <span className="block" style={{ color: COLOR.inkSoft, fontFamily: FONT_BODY, fontSize: 11, marginTop: 3 }}>
+                        原价 <span style={{ textDecoration: "line-through" }}>RM{listPrice}</span>
+                        {listPrice !== offerPrice && <span style={{ color: COLOR.green, marginLeft: 6 }}>省 {money(rm(listPrice) - rm(offerPrice))}</span>}
+                      </span>
                     </span>
-                    <span className="flex-shrink-0" style={{ color: COLOR.gold, fontFamily: FONT_BODY, fontSize: 13.5, fontWeight: 700 }}>
-                      {headlineLabel && <span style={{ color: COLOR.inkSoft, fontSize: 10.5, fontWeight: 500 }}>{headlineLabel} </span>}
-                      RM{headline}
+                    <span className="flex-shrink-0 text-right">
+                      <span className="block" style={{ color: COLOR.inkSoft, fontFamily: FONT_BODY, fontSize: 10, fontWeight: 500 }}>
+                        {mode === "asneed" ? "即用优惠价" : "优惠价"}
+                      </span>
+                      <span className="block" style={{ color: COLOR.gold, fontFamily: FONT_BODY, fontSize: 16, fontWeight: 700, lineHeight: 1.2 }}>
+                        RM{offerPrice}
+                      </span>
+                      {mode === "epp" && (
+                        <span className="block" style={{ color: COLOR.inkSoft, fontFamily: FONT_BODY, fontSize: 10.5, marginTop: 1 }}>
+                          Upfront RM{p.epp.upfront}
+                        </span>
+                      )}
                     </span>
                   </button>
                   {open && (
