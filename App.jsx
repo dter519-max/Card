@@ -1811,11 +1811,24 @@ function HomeScreen({ go }) {
           <ChevronRight size={18} color={COLOR.gold} />
         </div>
       </Card>
+      {/* The map board on the home screen, not two taps away -- it is the thing an agent
+          points at while standing next to a customer. Tapping it opens the park guide.
+          It comes from Drive like every other photo here, so it can fail to load; when it
+          does, DrivePhoto shows a tile instead of a broken image and the row still works. */}
+      <button onClick={() => go("park")} className="w-full text-left mb-4">
+        <div className="flex items-center justify-between mb-1.5">
+          <span style={{ color: COLOR.ink, fontFamily: FONT_BODY, fontWeight: 700, fontSize: 13 }}>园区分布图 Park Map</span>
+          <span style={{ color: COLOR.gold, fontFamily: FONT_BODY, fontSize: 11.5 }}>看照片 ›</span>
+        </div>
+        <DrivePhoto id={DRIVE_MAP_BOARD} alt="甲板山庄园区分布图" height={150} />
+      </button>
+
       <div className="grid grid-cols-2 gap-3">
         <FeatureCard icon={MapPin} label="查福位 Find a Lot" desc={`目前空置 ${availCount} 个`} onClick={() => go("search")} big />
         <FeatureCard icon={Calculator} label="价格计算 Calculator" desc="骨灰位 + 土葬 · 原价、回扣、头期、供期" onClick={() => go("calculator")} big />
         <FeatureCard icon={Tag} label="促销 Promotions" desc="现金回扣详情" onClick={() => go("promotions")} />
         <FeatureCard icon={Sparkles} label="查询助手 Assistant" desc="用讲话的方式问还有什么空置" onClick={() => go("ai")} />
+        <FeatureCard icon={ImageIcon} label="园区导览" desc="每个座 / 每个区的照片" onClick={() => go("park")} />
         <FeatureCard icon={BookOpen} label="产品资料" desc="常见问题" onClick={() => go("knowledge")} />
         <FeatureCard icon={Users} label="FSP 配套" desc="圆满契约殡仪配套" onClick={() => go("fsp")} />
       </div>
