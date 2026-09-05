@@ -2907,6 +2907,8 @@ function FSPScreen() {
    appears in neither the floor plan nor the price lists -- all noted, not guessed.
 =================================================================================== */
 const DRIVE_PHOTOS_FOLDER = "1MluJrfFY2hCN69q8bJ3Z_C5omWTqQBwN";
+// 江南古镇分布图.jpg -- the park map board, the thing with a photo and a name per letter.
+const DRIVE_MAP_BOARD = "1YZ8huM7Fhe6V8ZZHT8N20oXGjvtVYb4A";
 const driveImg = (id, w = 900) => `https://drive.google.com/thumbnail?id=${id}&sz=w${w}`;
 const driveFolder = (id) => `https://drive.google.com/drive/folders/${id}`;
 
@@ -2941,21 +2943,21 @@ const PARK_BLOCKS = [
     "1aNuAlWsEaabcdzQUSoSVUC0tu49oy5YE", "1j-z4UQucmSgI35n5JNkRe5aF4YZdepJ_"],
     note: "最后一张是双人位的门板设计" },
   { k: "K", cn: "圣宝院", folder: null, photos: [] },
-  { k: "L", cn: "存孝院", folder: "19Gn6RO19NlfYVTvygG0vEdh3yKgqrsJ3", photos: [
+  { k: "L", cn: "存孝院", mapCn: "忠孝院", folder: "19Gn6RO19NlfYVTvygG0vEdh3yKgqrsJ3", photos: [
     "1BOvayxi94dmwvYyt41oG_xnaiNXsiXvm", "1yWcnIOJ9BsvxJq1-RAAik7YpXNLyd7LA",
     "1CgRE50e3JM1F7kxYU-fOD4HMBJx3QNGO", "1Vn3U5rD-tiQ6b3H-hEye6iQixI98N5Kn",
     "1bRCyVq5zYvp_YnSlZYdzYCehIPeRaja5", "1at6_iehHoAjNRivZ6D6_QhRPKqzI_7JR",
     "1PUZWWom4AFcTEPbQdTxRXSuLS9d2EkrQ", "1wy0X4CmJUWn_bnoaj5CTT6gxFlX5nlww",
     "16Cx7aGWg-kupPPlBHbr2OXlduxQ-Mb3g", "1aSpA9EH3ZayPBREmjR-BoxxTQBYpRHy8",
     "1Vhkht_6BcPWL_RAqyqmCdz_FndUa6igw"], note: "最后一张是双人位的门板设计" },
-  { k: "M", cn: "三福院", folder: "1_eoJJVqwEDpFoRIQkdBcb-YdZkzpzxst", photos: [
+  { k: "M", cn: "三福院", mapCn: "?福院", folder: "1_eoJJVqwEDpFoRIQkdBcb-YdZkzpzxst", photos: [
     "1hgDfE9K04tdOwNcRGbTA2JRMkcK66q0I", "1DBlhgz3yryS2C8bu0rjATYskqDIPtifh",
     "108Chk7-vcHJKDMpyqtVhG7TQtEuoomYR"] },
-  { k: "N", cn: "德阳院", folder: "1UpXAnfNhAq0xzZI-Yb05RH2p5oWzHdBy", photos: [
+  { k: "N", cn: "德阳院", mapCn: "三合院", folder: "1UpXAnfNhAq0xzZI-Yb05RH2p5oWzHdBy", photos: [
     "1q_LHNS-cwWSuN0ueuhu3ARqdrPX-BoSU", "11BHae0oIYWItLMkrIndU8bA7gcCNp4Kg",
     "1sjKnN03lwQGW511TzpqSxQkxo1uSAp06", "13iqaMgklyeGHscMe36doiaJpb2uHlh5h",
     "1HbOMKYsyMfcr6PooTPIH5Aa8k9Gm5ThE"], note: "最后一张是福位样本" },
-  { k: "P", cn: "竹林阁", folder: null, photos: [] },
+  { k: "P", cn: "竹林阁", mapCn: "西合院", folder: null, photos: [] },
 ];
 
 // Zone C's folder holds both CA and CB, so the two share it and take the shots that
@@ -3077,6 +3079,11 @@ function ParkScreen({ go }) {
 
         <div style={{ color: COLOR.ink, fontFamily: FONT_DISPLAY, fontWeight: 700, fontSize: 20 }}>{open.title}</div>
         {open.sub && <div style={{ color: COLOR.gold, fontFamily: FONT_BODY, fontSize: 13.5, marginTop: 2 }}>{open.sub}</div>}
+        {open.mapCn && (
+          <div style={{ color: COLOR.orange, fontFamily: FONT_BODY, fontSize: 11.5, marginTop: 3 }}>
+            ⚠️ 园区看板上写的是「{open.mapCn === "?福院" ? "另一个名字" : open.mapCn}」,不是「{open.cn}」—— 跟公司确认哪个在用
+          </div>
+        )}
         {open.free !== null && (
           <div style={{ color: COLOR.inkSoft, fontFamily: FONT_BODY, fontSize: 12.5, marginTop: 4 }}>
             现在还有 <b style={{ color: open.free ? COLOR.green : COLOR.orange }}>{open.free}</b> {open.unit}
@@ -3140,6 +3147,16 @@ function ParkScreen({ go }) {
         </span>
       </div>
 
+      <div className="mb-5">
+        <div style={{ color: COLOR.ink, fontFamily: FONT_BODY, fontWeight: 700, fontSize: 13, marginBottom: 8 }}>
+          园区分布图
+        </div>
+        <DrivePhoto id={DRIVE_MAP_BOARD} alt="甲板山庄园区分布图" height={190} onClick={() => setZoom(DRIVE_MAP_BOARD)} />
+        <p style={{ color: COLOR.inkSoft, fontFamily: FONT_BODY, fontSize: 11, marginTop: 5 }}>
+          点一下放大。看板上每个字母（A–W）就是一个座或一个设施。
+        </p>
+      </div>
+
       {groups.map((g) => (
         <div key={g.title} className="mb-5">
           <div style={{ color: COLOR.ink, fontFamily: FONT_BODY, fontWeight: 700, fontSize: 13, marginBottom: 8 }}>{g.title}</div>
@@ -3173,11 +3190,25 @@ function ParkScreen({ go }) {
         <div style={{ color: COLOR.ink, fontFamily: FONT_BODY, fontWeight: 600, fontSize: 13 }}>关于这些名字和照片</div>
         <p style={{ color: COLOR.inkSoft, fontFamily: FONT_BODY, fontSize: 12, lineHeight: 1.75, marginTop: 6 }}>
           中文座名是照<b style={{ color: COLOR.ink }}>公司的福位楼层图</b>写的（编号也是从那份来的）。
-          园区那块地图看板上,同样的字母印的是另一套名字 —— 两份对不上,
-          <b style={{ color: COLOR.ink }}>报之前先跟公司确认一下</b>,我没有自己选一个。
+          拿去跟园区分布图看板对过:<b style={{ color: COLOR.green }}>12 个座里 8 个两份一模一样</b>
+          （A B C D E F G K）,只有 4 个不一样:
+        </p>
+        <div className="mt-2 space-y-1">
+          {PARK_BLOCKS.filter((b) => b.mapCn).map((b) => (
+            <div key={b.k} className="flex items-baseline gap-2" style={{ fontFamily: FONT_BODY, fontSize: 11.5 }}>
+              <span style={{ color: COLOR.ink, fontWeight: 700, minWidth: 52 }}>Block {b.k}</span>
+              <span style={{ color: COLOR.inkSoft }}>楼层图 <b style={{ color: COLOR.ink }}>{b.cn}</b></span>
+              <span style={{ color: COLOR.inkSoft }}>·</span>
+              <span style={{ color: COLOR.inkSoft }}>看板 <b style={{ color: COLOR.orange }}>{b.mapCn === "?福院" ? "另一个名字" : b.mapCn}</b></span>
+            </div>
+          ))}
+        </div>
+        <p style={{ color: COLOR.inkSoft, fontFamily: FONT_BODY, fontSize: 12, lineHeight: 1.75, marginTop: 8 }}>
+          M 座看板上那个名字第一个字我看不清楚（图太小）,自己看上面那张分布图。
+          这 4 个<b style={{ color: COLOR.ink }}>跟公司确认哪个是现在用的</b> —— 我没有自己选一个。
           <br />
           K 座和 P 座,Drive 里<b style={{ color: COLOR.ink }}>没有照片资料夹</b>。
-          地图看板上还有一个 Block H,楼层图和价目表里都没有,所以这里也没有列。
+          看板上还有一个 <b style={{ color: COLOR.ink }}>Block H</b>,楼层图和价目表里都没有,所以这里也没有列。
         </p>
         <a href={driveFolder(DRIVE_PHOTOS_FOLDER)} target="_blank" rel="noreferrer"
           className="flex items-center justify-center gap-1.5 rounded-xl px-3 py-2.5 mt-3"
@@ -3185,6 +3216,14 @@ function ParkScreen({ go }) {
           在 Drive 打开整个相片资料夹 <ExternalLink size={13} />
         </a>
       </Card>
+
+      {zoom && (
+        <div onClick={() => setZoom(null)} className="fixed inset-0 z-50 flex items-center justify-center p-3"
+          style={{ background: "rgba(0,0,0,0.88)" }}>
+          <img src={driveImg(zoom, 1600)} alt="放大"
+            style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain", borderRadius: 8 }} />
+        </div>
+      )}
     </div>
   );
 }
