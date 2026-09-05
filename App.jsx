@@ -2913,14 +2913,14 @@ const driveImg = (id, w = 900) => `https://drive.google.com/thumbnail?id=${id}&s
 const driveFolder = (id) => `https://drive.google.com/drive/folders/${id}`;
 
 const PARK_BLOCKS = [
-  { k: "A", cn: "慈慧阁", folder: "1yRehmVZeYREKfNVe-wrBKd9_KY6gjPU2", photos: [
+  { k: "A", cn: "慈慧阁", ok: true, folder: "1yRehmVZeYREKfNVe-wrBKd9_KY6gjPU2", photos: [
     "14YJ-9jBsnvdzimHaHU7wWXvOlZPAjlxW", "1PeAYhvtX_3froL0W6v_lWjZ2tRfjGRBu",
     "1g0DmrSwlg6DWCiE_vL7bavea7ol-EgyQ", "1gkeP74CTmY2DiBSes6odYuwgyNxlf9UW"] },
-  { k: "B", cn: "静宁阁", folder: "1oJtHlROYSgs1wFYoVGII8d9O7EGN11fG", photos: [
+  { k: "B", cn: "静宁阁", ok: true, folder: "1oJtHlROYSgs1wFYoVGII8d9O7EGN11fG", photos: [
     "19egeAHreMpKAUESbOldE0-IfNFng2IK3", "1ML3_JBUF-05wU0FNVeSsGr-20qc7Cbc8",
     "1cuOrVbqC3fi12DzVfYrO6XxrkJhgB20W", "1F3NkdtR5FFZOamErAi5jUwjnWxUk3JAv",
     "1CwIXX2KQ7eiAJM5QbvLTGYsZZxEBMtnT"] },
-  { k: "C", cn: "三善院", folder: "1sVJwKU8P86fbfKWg1NIpVIdOz2rygWIa", photos: [
+  { k: "C", cn: "三善院", ok: true, folder: "1sVJwKU8P86fbfKWg1NIpVIdOz2rygWIa", photos: [
     "1INHaqCIV_TfjZnbe_JjqmRHupSfhp0Bj", "1CRHgElM8sDfhfRRSi4n2_OuhYmjRpHX8",
     "1yyPwhKkizdbJoYNy-IS_dT_EL9LOTf6U", "1Hz7PeQMyXApYBo117ah7hjJKm15EN71W",
     "14UyoZ1MKQkAtLPxtcveFOw_UVShIvQhj", "1Rx83sSTssJffjNjx_Xzj4YVcMDEpQNeN"] },
@@ -2950,7 +2950,7 @@ const PARK_BLOCKS = [
     "1PUZWWom4AFcTEPbQdTxRXSuLS9d2EkrQ", "1wy0X4CmJUWn_bnoaj5CTT6gxFlX5nlww",
     "16Cx7aGWg-kupPPlBHbr2OXlduxQ-Mb3g", "1aSpA9EH3ZayPBREmjR-BoxxTQBYpRHy8",
     "1Vhkht_6BcPWL_RAqyqmCdz_FndUa6igw"], note: "最后一张是双人位的门板设计" },
-  { k: "M", cn: "三福院", mapCn: "?福院", folder: "1_eoJJVqwEDpFoRIQkdBcb-YdZkzpzxst", photos: [
+  { k: "M", cn: "善福院", planCn: "三福院", ok: true, folder: "1_eoJJVqwEDpFoRIQkdBcb-YdZkzpzxst", photos: [
     "1hgDfE9K04tdOwNcRGbTA2JRMkcK66q0I", "1DBlhgz3yryS2C8bu0rjATYskqDIPtifh",
     "108Chk7-vcHJKDMpyqtVhG7TQtEuoomYR"] },
   { k: "N", cn: "德阳院", mapCn: "三合院", folder: "1UpXAnfNhAq0xzZI-Yb05RH2p5oWzHdBy", photos: [
@@ -3081,7 +3081,12 @@ function ParkScreen({ go }) {
         {open.sub && <div style={{ color: COLOR.gold, fontFamily: FONT_BODY, fontSize: 13.5, marginTop: 2 }}>{open.sub}</div>}
         {open.mapCn && (
           <div style={{ color: COLOR.orange, fontFamily: FONT_BODY, fontSize: 11.5, marginTop: 3 }}>
-            ⚠️ 园区看板上写的是「{open.mapCn === "?福院" ? "另一个名字" : open.mapCn}」,不是「{open.cn}」—— 跟公司确认哪个在用
+            ⚠️ 园区看板上写的是「{open.mapCn}」,不是「{open.cn}」—— 跟公司确认哪个在用
+          </div>
+        )}
+        {open.ok && (
+          <div style={{ color: COLOR.green, fontFamily: FONT_BODY, fontSize: 11.5, marginTop: 3 }}>
+            ✓ 名字已跟公司确认{open.planCn ? `（福位楼层图 PDF 印的是「${open.planCn}」,以这个为准）` : ""}
           </div>
         )}
         {open.free !== null && (
@@ -3189,9 +3194,12 @@ function ParkScreen({ go }) {
       <Card>
         <div style={{ color: COLOR.ink, fontFamily: FONT_BODY, fontWeight: 600, fontSize: 13 }}>关于这些名字和照片</div>
         <p style={{ color: COLOR.inkSoft, fontFamily: FONT_BODY, fontSize: 12, lineHeight: 1.75, marginTop: 6 }}>
-          中文座名是照<b style={{ color: COLOR.ink }}>公司的福位楼层图</b>写的（编号也是从那份来的）。
-          拿去跟园区分布图看板对过:<b style={{ color: COLOR.green }}>12 个座里 8 个两份一模一样</b>
-          （A B C D E F G K）,只有 4 个不一样:
+          中文座名是照<b style={{ color: COLOR.ink }}>公司的福位楼层图</b>写的（编号也是从那份来的）,
+          再拿去跟园区分布图看板对过 —— <b style={{ color: COLOR.green }}>12 个座里 8 个两份一模一样</b>
+          （A B C D E F G K）。M 座<b style={{ color: COLOR.green }}>公司已经确认是「善福院」</b>
+          （楼层图 PDF 印的是「三福院」,不用那个）。
+          <br />
+          剩下这 3 个还没确认,两份写的不一样:
         </p>
         <div className="mt-2 space-y-1">
           {PARK_BLOCKS.filter((b) => b.mapCn).map((b) => (
@@ -3199,13 +3207,12 @@ function ParkScreen({ go }) {
               <span style={{ color: COLOR.ink, fontWeight: 700, minWidth: 52 }}>Block {b.k}</span>
               <span style={{ color: COLOR.inkSoft }}>楼层图 <b style={{ color: COLOR.ink }}>{b.cn}</b></span>
               <span style={{ color: COLOR.inkSoft }}>·</span>
-              <span style={{ color: COLOR.inkSoft }}>看板 <b style={{ color: COLOR.orange }}>{b.mapCn === "?福院" ? "另一个名字" : b.mapCn}</b></span>
+              <span style={{ color: COLOR.inkSoft }}>看板 <b style={{ color: COLOR.orange }}>{b.mapCn}</b></span>
             </div>
           ))}
         </div>
         <p style={{ color: COLOR.inkSoft, fontFamily: FONT_BODY, fontSize: 12, lineHeight: 1.75, marginTop: 8 }}>
-          M 座看板上那个名字第一个字我看不清楚（图太小）,自己看上面那张分布图。
-          这 4 个<b style={{ color: COLOR.ink }}>跟公司确认哪个是现在用的</b> —— 我没有自己选一个。
+          这 3 个<b style={{ color: COLOR.ink }}>跟公司确认哪个是现在用的</b> —— 我没有自己选一个。
           <br />
           K 座和 P 座,Drive 里<b style={{ color: COLOR.ink }}>没有照片资料夹</b>。
           看板上还有一个 <b style={{ color: COLOR.ink }}>Block H</b>,楼层图和价目表里都没有,所以这里也没有列。
