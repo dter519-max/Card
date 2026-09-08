@@ -377,7 +377,18 @@ function Card({ children, style, onClick }) {
 }
 function TopBar({ title, onBack, right }) {
   return (
-    <div className="sticky top-0 z-20 flex items-center justify-between px-4 py-3.5" style={{ background: COLOR.bg, borderBottom: `1px solid ${COLOR.line}` }}>
+    <div
+      className="sticky top-0 z-20 flex items-center justify-between px-4 py-3.5"
+      // The page paints under the status bar (viewport-fit=cover), so the bar has to
+      // grow upward by the inset and paint that strip itself. Without this the strip
+      // stays transparent and whatever is scrolling past shows through above the bar.
+      // env() is 0 wherever there is no inset, which leaves the bar exactly as it was.
+      style={{
+        background: COLOR.bg,
+        borderBottom: `1px solid ${COLOR.line}`,
+        paddingTop: "calc(0.875rem + env(safe-area-inset-top))",
+      }}
+    >
       <div className="flex items-center gap-2">
         {onBack && (
           <button onClick={onBack} className="p-1 -ml-1" style={{ color: COLOR.inkSoft }}>
@@ -3348,7 +3359,7 @@ function LoginScreen({ onSignIn }) {
   };
 
   return (
-    <div style={{ background: COLOR.bg, minHeight: "100vh" }} className="flex items-center justify-center px-5">
+    <div style={{ background: COLOR.bg }} className="app-vh flex items-center justify-center px-5">
       <div className="w-full" style={{ maxWidth: 380 }}>
         <div className="flex flex-col items-center mb-7">
           <AlphaMark size={46} />
@@ -3702,7 +3713,7 @@ export default function App() {
     return (
       <div style={{ fontFamily: FONT_BODY }}>
         {fontImport}
-        <div style={{ background: COLOR.bg, minHeight: "100vh" }} className="flex items-center justify-center">
+        <div style={{ background: COLOR.bg }} className="app-vh flex items-center justify-center">
           <Loader2 size={22} color={COLOR.gold} className="animate-spin" />
         </div>
       </div>
@@ -3721,7 +3732,17 @@ export default function App() {
   return (
     <div style={{ fontFamily: FONT_BODY }}>
       {fontImport}
-      <div style={{ background: COLOR.bg, minHeight: "100vh" }}>
+      <div
+        className="app-vh"
+        // Every screen already reserves pb-24/pb-28 for the tab bar; the bottom inset is
+        // on top of that so the last row still clears the bar on a home-indicator phone.
+        style={{
+          background: COLOR.bg,
+          paddingBottom: "env(safe-area-inset-bottom)",
+          paddingLeft: "env(safe-area-inset-left)",
+          paddingRight: "env(safe-area-inset-right)",
+        }}
+      >
         <TopBar title={TITLES[tab]} onBack={subScreen ? () => setTab("home") : null} right={<AlphaMark size={22} />} />
 
         {tab === "home" && <HomeScreen go={go} />}
@@ -3738,7 +3759,20 @@ export default function App() {
         {tab === "park" && <ParkScreen go={go} />}
 
         {!subScreen && (
-          <div className="fixed bottom-0 left-0 right-0 flex items-center justify-around py-2 z-20" style={{ background: COLOR.panel, borderTop: `1px solid ${COLOR.line}` }}>
+          <div
+            className="fixed bottom-0 left-0 right-0 flex items-center justify-around py-2 z-20"
+            // Same deal at the bottom: bottom-0 is the bottom of the viewport, which now
+            // extends past the home indicator, so the bar pads itself down over that strip
+            // rather than floating above a band of scrolling content. The side insets are
+            // for landscape -- being fixed, this bar sits outside the root's padding.
+            style={{
+              background: COLOR.panel,
+              borderTop: `1px solid ${COLOR.line}`,
+              paddingBottom: "calc(0.5rem + env(safe-area-inset-bottom))",
+              paddingLeft: "env(safe-area-inset-left)",
+              paddingRight: "env(safe-area-inset-right)",
+            }}
+          >
             {NAV.map((n) => {
               const Icon = n.icon;
               const active = tab === n.key;

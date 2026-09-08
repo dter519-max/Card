@@ -29,6 +29,13 @@ npm run deploy     # build + surge dist alphaagentsystem.surge.sh
 - **别用 `execFileSync` 调 `npx`/任何 `.cmd`**。用户在 Windows，Node 会报
   `spawnSync npx.cmd EINVAL`。Tailwind 现在是在 Node 里经 PostCSS 跑的，不起子进程。
 - 编辑 `App.jsx` 时用 Edit 而不是整份 Write，文件太大。读也要用 offset/limit 分段读。
+- **贴着屏幕边缘的东西要自己补 `env(safe-area-inset-*)`**。`build.mjs` 的 viewport 是
+  `viewport-fit=cover`，页面会一路画到状态栏和 home indicator 底下 —— 顶栏和底部 tab bar
+  必须各自把那条留白 padding 回来，否则那两条就是透的，正在滚的内容会从上下两头露出来
+  （手机上看就是「上下镂空」）。没有 inset 的装置上 `env()` 是 0，样子不变。
+- **别用 `100vh`，用 `.app-vh`**（`min-height:100vh` 打底 + `100dvh`）。iOS Safari 的
+  `100vh` 是按工具栏收起来时的高度算的，工具栏还在的时候页面就比屏幕高一截，整个版面会往
+  浏览器 chrome 底下漂。
 
 ## 资料从哪来
 

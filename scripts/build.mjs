@@ -69,11 +69,25 @@ const html = `<!doctype html>
 <html lang="zh">
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#111113" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="Alpha Agent" />
 <title>Alpha Agent System</title>
 <style>
 html,body{margin:0;padding:0;background:#111113;color-scheme:dark;}
 img{max-width:100%}
+/* viewport-fit=cover above lets the page paint under the status bar and the home
+   indicator, which is the only way the top bar and the tab bar can cover those
+   strips instead of leaving page content showing through them. Everything that
+   reaches an edge pads itself back out with env(safe-area-inset-*).
+
+   100dvh follows Safari's toolbars as they collapse; 100vh is frozen at the tall
+   measurement, so it makes the page taller than the screen and lets the layout
+   drift behind the browser chrome. Keep both -- the 100vh line is the fallback
+   for anything that predates dvh. */
+.app-vh{min-height:100vh;min-height:100dvh}
 ${css}
 </style>
 </head>
