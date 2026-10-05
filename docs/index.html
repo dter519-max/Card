@@ -1,0 +1,324 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#8B1D1D">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="欠贯钱">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="icon" href="icon-192.png">
+<title>欠贯钱计算系统</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@600;700;900&display=swap">
+<style>
+/* Layout: one narrow column, phone first; tabs pinned at the bottom like a native app */
+:root{
+  --paper:#F6F1E6; --sheet:#FFFCF5; --ink:#2A2724; --muted:#736B60; --rule:#E3D8C4;
+  --red:#8B1D1D; --red-ink:#FFF8EE; --gold:#A57C22; --warn-bg:#FBEAD3; --warn:#8A4A06; --ok:#2F6B3A;
+  --serif:"Noto Serif SC","Songti SC","STSong",serif;
+  --sans:-apple-system,"PingFang SC","Hiragino Sans GB","Noto Sans SC","Microsoft YaHei",sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --paper:#1A1816; --sheet:#24201C; --ink:#EEE7DA; --muted:#A79E90; --rule:#3B352E;
+  --red:#D9675C; --red-ink:#1A1816; --gold:#D9B460; --warn-bg:#3A2A17; --warn:#F2B66B; --ok:#8CC98F; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --paper:#1A1816; --sheet:#24201C; --ink:#EEE7DA; --muted:#A79E90; --rule:#3B352E;
+  --red:#D9675C; --red-ink:#1A1816; --gold:#D9B460; --warn-bg:#3A2A17; --warn:#F2B66B; --ok:#8CC98F; color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font:16px/1.6 var(--sans);-webkit-text-size-adjust:100%}
+.wrap{max-width:560px;margin:0 auto;padding:20px 16px calc(96px + env(safe-area-inset-bottom,0px))}
+header{text-align:center;padding:8px 0 18px}
+h1{font-family:var(--serif);font-weight:900;font-size:28px;color:var(--red);margin:0;letter-spacing:.06em}
+header p{margin:2px 0 0;color:var(--muted);font-size:14px}
+h2{font-family:var(--serif);font-size:19px;margin:0 0 12px;color:var(--ink)}
+.card{background:var(--sheet);border:1px solid var(--rule);border-radius:10px;padding:18px 16px}
+.field{display:flex;flex-direction:column;gap:6px;margin-bottom:14px}
+.field>label,.lbl{font-size:13px;color:var(--muted);letter-spacing:.06em}
+input,select,button{font:inherit;color:inherit}
+input[type=text],input[type=number],input[type=time],select{width:100%;min-width:0;padding:11px 12px;border:1px solid var(--rule);border-radius:8px;background:var(--paper);font-size:17px}
+input:focus-visible,select:focus-visible,button:focus-visible{outline:2px solid var(--gold);outline-offset:1px}
+.row{display:grid;grid-template-columns:1fr 1.15fr 1fr;gap:8px}
+.row select{padding-right:4px}
+.seg{display:grid;grid-template-columns:1fr 1fr;border:1px solid var(--red);border-radius:8px;overflow:hidden}
+.seg button{border:0;background:transparent;padding:10px;cursor:pointer;color:var(--red);font-weight:600}
+.seg button[aria-pressed=true]{background:var(--red);color:var(--red-ink)}
+.check{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--muted)}
+.check input{width:18px;height:18px;accent-color:var(--red)}
+.or{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.primary{width:100%;border:0;border-radius:10px;background:var(--red);color:var(--red-ink);padding:14px;font-size:18px;font-weight:700;letter-spacing:.2em;cursor:pointer}
+.primary:active{transform:translateY(1px)}
+.ghost{border:1px solid var(--rule);background:var(--sheet);border-radius:8px;padding:8px 12px;cursor:pointer;font-size:14px}
+.err{color:var(--warn);background:var(--warn-bg);border-radius:8px;padding:10px 12px;margin-top:12px;font-size:15px}
+.result{margin-top:18px}
+.who{display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap}
+.who b{font-family:var(--serif);font-size:22px}
+.meta{color:var(--muted);font-size:14px}
+.bazi{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin:12px 0;text-align:center}
+.bazi div{border:1px solid var(--rule);border-radius:6px;padding:6px 0}
+.bazi small{display:block;color:var(--muted);font-size:11px}
+.bazi span{font-family:var(--serif);font-size:20px}
+.lines{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+.lines td{padding:9px 0;border-bottom:1px dashed var(--rule);vertical-align:top}
+.lines td:first-child{width:1%;white-space:nowrap;padding-right:10px;color:var(--gold);font-family:var(--serif)}
+.lines td.n{text-align:right;white-space:nowrap;padding-left:8px;font-weight:600}
+.lines .d{display:block;color:var(--muted);font-size:13px}
+.total{display:flex;justify-content:space-between;padding:10px 0 4px;font-variant-numeric:tabular-nums}
+.big{text-align:center;margin:14px 0 6px;padding:18px 8px;border:2px solid var(--red);border-radius:12px;position:relative}
+.big .lbl{display:block}
+.big strong{display:block;font-family:var(--serif);font-weight:900;font-size:56px;line-height:1.1;color:var(--red)}
+.big strong small{font-size:22px;margin-left:4px}
+.pay{display:flex;justify-content:center;gap:18px;flex-wrap:wrap;font-size:15px;margin-top:6px}
+.pay b{color:var(--red);font-size:22px}
+.note{text-align:center;color:var(--muted);font-size:12.5px;margin:6px 0 0}
+.slip{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px;text-align:center}
+.slip div{background:var(--paper);border-radius:8px;padding:8px 4px}
+.slip small{display:block;color:var(--muted);font-size:12px}
+.slip span{font-family:var(--serif);font-size:18px}
+.flag{color:var(--warn);font-size:11px}
+details{margin-top:14px;border-top:1px solid var(--rule);padding-top:10px}
+summary{cursor:pointer;color:var(--red);font-weight:600}
+ol.flow{padding-left:20px;margin:10px 0 0;font-size:14px}
+ol.flow li{margin:6px 0}
+ol.flow code{font-family:var(--sans);background:var(--paper);padding:1px 5px;border-radius:4px}
+.warnbox{background:var(--warn-bg);color:var(--warn);border-radius:8px;padding:10px 12px;margin-top:10px;font-size:14px}
+nav{position:fixed;left:0;right:0;bottom:0;background:var(--sheet);border-top:1px solid var(--rule);display:grid;grid-template-columns:repeat(3,1fr);padding-bottom:env(safe-area-inset-bottom,0px);z-index:5}
+nav button{border:0;background:transparent;padding:12px 0 14px;cursor:pointer;color:var(--muted);font-size:15px}
+nav button[aria-current=page]{color:var(--red);font-weight:700;box-shadow:inset 0 3px 0 var(--red)}
+.hist{list-style:none;margin:0;padding:0}
+.hist li{border-bottom:1px solid var(--rule);padding:12px 0;display:flex;justify-content:space-between;gap:10px}
+.hist .l{min-width:0}
+.hist b{font-family:var(--serif);font-size:18px}
+.hist .r{text-align:right;white-space:nowrap}
+.hist .r b{color:var(--red)}
+.empty{color:var(--muted);text-align:center;padding:24px 8px}
+.tbl{overflow-x:auto;border:1px solid var(--rule);border-radius:8px;margin:8px 0 16px}
+.tbl table{border-collapse:collapse;width:100%;font-size:14px;font-variant-numeric:tabular-nums}
+.tbl th,.tbl td{padding:6px 8px;border-bottom:1px solid var(--rule);white-space:nowrap;text-align:left}
+.tbl th{color:var(--muted);font-size:12px;font-weight:600}
+.tbl input{padding:6px 8px;font-size:14px;width:96px}
+.tbl input.s{width:56px}
+.bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
+.toast{position:fixed;left:50%;bottom:84px;transform:translateX(-50%);background:var(--ink);color:var(--paper);padding:8px 16px;border-radius:20px;font-size:14px;z-index:9}
+@media (prefers-reduced-motion:no-preference){.result{animation:in .25s ease-out}@keyframes in{from{opacity:.4;transform:translateY(6px)}to{opacity:1;transform:none}}}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>欠贯钱计算系统</h1>
+    <p>输入出生资料，自动计算欠贯</p>
+  </header>
+
+  <!-- 计算 -->
+  <section id="v-calc">
+    <form class="card" id="f" novalidate>
+      <h2>顾客资料</h2>
+      <div class="field"><label for="name">顾客全名</label><input type="text" id="name" placeholder="例：曾祥喜" autocomplete="off"></div>
+      <div class="field"><span class="lbl">历法</span>
+        <div class="seg" role="group"><button type="button" id="calSolar" aria-pressed="true">阳历</button><button type="button" id="calLunar" aria-pressed="false">农历</button></div>
+      </div>
+      <div class="field"><span class="lbl" id="dateLbl">出生日期（阳历）</span>
+        <div class="row">
+          <input type="number" id="y" inputmode="numeric" placeholder="年" aria-label="年">
+          <select id="m" aria-label="月"></select>
+          <select id="d" aria-label="日"></select>
+        </div>
+        <label class="check" id="leapWrap" hidden><input type="checkbox" id="leap"> 闰月</label>
+      </div>
+      <div class="field"><span class="lbl">出生时间</span>
+        <div class="or">
+          <input type="time" id="t" aria-label="钟点">
+          <select id="br" aria-label="或直接选时辰"><option value="">或选时辰</option></select>
+        </div>
+      </div>
+      <button class="primary" type="submit">开始计算</button>
+      <div class="err" id="err" hidden></div>
+    </form>
+    <div id="out"></div>
+  </section>
+
+  <!-- 历史 -->
+  <section id="v-hist" hidden>
+    <div class="card">
+      <h2>历史记录</h2><p class="meta" style="margin-top:-6px">记录只存在这部手机的浏览器里，别人看不到。清除浏览器资料或换手机会消失。</p>
+      <div class="bar"><input type="text" id="q" placeholder="搜索姓名"></div>
+      <ul class="hist" id="hl"></ul>
+      <p class="empty" id="hEmpty">还没有记录。在「计算」页算一次，结果会自动保存在这里。</p>
+    </div>
+  </section>
+
+  <!-- 规则 -->
+  <section id="v-rules" hidden>
+    <div class="card">
+      <h2>规则设置</h2>
+      <p class="meta" id="rState">规则来自书页照片，由管理员统一更新。</p>
+      <div class="bar">
+        <label class="lbl" for="price">每 1 万贯收费（RM）</label>
+        <input type="number" id="price" class="s" style="width:90px">
+      </div>
+      <h2>年份表（按阳历年份查）</h2>
+      <div class="tbl"><table><thead><tr><th>干支</th><th>年份</th><th>欠钱（贯）</th><th>卷</th><th>库</th><th>曹官姓</th><th>来源</th></tr></thead><tbody id="ry"></tbody></table></div>
+      <h2>天干金额（月干、时干共用）</h2>
+      <div class="tbl"><table><thead><tr><th>天干</th><th>月干（贯）</th><th>时干（贯）</th></tr></thead><tbody id="rs"></tbody></table></div>
+      <h2>时支金额</h2>
+      <div class="tbl"><table><thead><tr><th>时支</th><th>贯</th></tr></thead><tbody id="rb"></tbody></table></div>
+      <p class="meta">月份数字：农历月份 × 1,000 贯；日期：农历日 × 1,000 贯。最终向上进位到整万。</p>
+      <div class="bar">
+        <button class="primary" type="button" id="save" style="width:auto;padding:10px 22px;letter-spacing:.05em;font-size:16px">保存规则</button>
+        <button class="ghost" type="button" id="reset">恢复书上原值</button>
+      </div>
+      <p class="meta" id="saveNote"></p>
+    </div>
+  </section>
+</div>
+
+<nav aria-label="页面">
+  <button type="button" data-v="calc" aria-current="page">计算</button>
+  <button type="button" data-v="hist">历史</button>
+  <button type="button" data-v="rules">规则</button>
+</nav>
+<div class="toast" id="toast" hidden></div>
+
+<script src="lunar.js"></script>
+<script src="engine.js"></script>
+<script>
+(function(){
+const E = window.QianGuan, $ = id => document.getElementById(id);
+const fmt = n => Number(n).toLocaleString('en-US');
+const wanText = n => { const w = n/10000; return (Math.round(w*100)/100).toString(); };
+let rules = E.defaultRules();
+let cal = 'solar', histDocs = [];
+const KEY='qianguan-history-v1';
+function loadHist(){try{histDocs=JSON.parse(localStorage.getItem(KEY)||'[]')}catch(_){histDocs=[]}}
+function storeHist(){try{localStorage.setItem(KEY,JSON.stringify(histDocs));return true}catch(_){return false}}
+
+// ---------- 表单 ----------
+const ZHI = E.ZHI, HOURS=['23–01','01–03','03–05','05–07','07–09','09–11','11–13','13–15','15–17','17–19','19–21','21–23'];
+for (let i=0;i<12;i++) $('br').add(new Option(ZHI[i]+'时（'+HOURS[i]+'）', i));
+function fillMD(){
+  const m=$('m'), d=$('d'), mv=m.value, dv=d.value;
+  m.innerHTML=''; d.innerHTML='';
+  m.add(new Option('月',''));
+  d.add(new Option('日',''));
+  for (let i=1;i<=12;i++) m.add(new Option(cal==='lunar'?E.LUNAR_MONTH[i]:i+' 月', i));
+  for (let i=1;i<=(cal==='lunar'?30:31);i++) d.add(new Option(cal==='lunar'?E.LUNAR_DAY[i]:i+' 日', i));
+  m.value=mv; d.value=dv;
+}
+function setCal(c){
+  cal=c; $('calSolar').setAttribute('aria-pressed',c==='solar'); $('calLunar').setAttribute('aria-pressed',c==='lunar');
+  $('dateLbl').textContent='出生日期（'+(c==='lunar'?'农历':'阳历')+'）';
+  $('leapWrap').hidden = c!=='lunar'; fillMD();
+}
+$('calSolar').onclick=()=>setCal('solar'); $('calLunar').onclick=()=>setCal('lunar');
+$('t').oninput=()=>{ if($('t').value) $('br').value=''; };
+$('br').onchange=()=>{ if($('br').value!=='') $('t').value=''; };
+setCal('solar');
+
+$('f').addEventListener('submit', e=>{
+  e.preventDefault();
+  const err=$('err'); err.hidden=true;
+  const input={ name:$('name').value, calendar:cal, year:+$('y').value||null, month:+$('m').value||null, day:+$('d').value||null, leap:cal==='lunar'&&$('leap').checked };
+  if ($('t').value){ const [h,mi]=$('t').value.split(':').map(Number); input.hour=h; input.minute=mi; }
+  else if ($('br').value!=='') input.branch=+$('br').value;
+  if (!input.name.trim()||!input.year||!input.month||!input.day||(input.hour==null&&input.branch==null)){ err.textContent='请完整填写出生资料。'; err.hidden=false; return; }
+  if (input.year<1000||input.year>2999){ err.textContent='年份请填四位数，例如 1985。'; err.hidden=false; return; }
+  if (!window.Lunar){ err.textContent='万年历组件没有载入，请检查网络后重新打开页面。'; err.hidden=false; return; }
+  const r=E.calculate(input, rules, window);
+  if (r.error){ err.textContent=r.error; err.hidden=false; return; }
+  render(r); save(r, input);
+});
+
+function render(r){
+  const steps=r.steps.map((s,i)=>`<tr><td>${'①②③④'[i]} ${s.label}</td><td>${esc(s.detail)}<span class="d">来源：${s.source}</span></td><td class="n">${fmt(s.amount)}</td></tr>`).join('');
+  const manual = r.needsManual.length ? `<div class="warnbox">此项目需要人工确认，请检查原书：${r.needsManual.map(esc).join('；')}</div>` : '';
+  const flag = (()=>{const y=rules.years.find(x=>x.ganzhi===r.tableYear);return y&&y.caoguanCheck?'<span class="flag">（待核对）</span>':''})();
+  $('out').innerHTML=`<div class="card result">
+    <div class="who"><b>${esc(r.name)}</b><span class="meta">${esc(r.lunarText)}</span></div>
+    <div class="meta">阳历 ${r.solarText}</div>
+    <div class="bazi">
+      <div><small>年</small><span>${r.bazi.year}</span></div><div><small>月</small><span>${r.bazi.month}</span></div>
+      <div><small>日</small><span>${r.bazi.day}</span></div><div><small>时</small><span>${r.bazi.hour}</span></div>
+    </div>
+    <table class="lines">${steps}</table>
+    <div class="total"><span>原始合计</span><b>${fmt(r.raw)} 贯（${wanText(r.raw)} 万）</b></div>
+    ${manual}
+    <div class="big"><span class="lbl">最终欠贯</span><strong>${r.wan}<small>万贯</small></strong>
+      <div class="pay"><span>应付 <b>RM ${r.price}</b></span><span class="meta">${r.wan} × ${r.pricePerWan}</span></div></div>
+    <p class="note">最终金额已按照系统设定规则进位（不足一万进到下一万）。</p>
+    <div class="slip">
+      <div><small>看经</small><span>${r.juan ?? '—'} 卷</span></div>
+      <div><small>第几库</small><span>第 ${r.ku ?? '—'} 库</span></div>
+      <div><small>曹官姓</small><span>${esc(r.caoguan||'—')}</span>${flag}</div>
+    </div>
+    <details><summary>查看计算过程</summary>
+      <ol class="flow">
+        <li>输入：${r.lunarText}；阳历 ${r.solarText}</li>
+        <li>年份：阳历 <code>${r.solarText.slice(0,4)}</code> 年 → 查表 <code>${r.tableYear}</code> → ${fmt(r.steps[0].amount)} 贯</li>
+        <li>月份：万年历月柱 <code>${r.bazi.month}</code>，取月干 + 农历月份 × 1,000 → ${fmt(r.steps[1].amount)} 贯</li>
+        <li>日期：农历日 × 1,000 → ${fmt(r.steps[2].amount)} 贯</li>
+        <li>时辰：日柱 <code>${r.bazi.day}</code> 按日上起时诀得 <code>${r.bazi.hour}</code>，时干 + 时支 → ${fmt(r.steps[3].amount)} 贯</li>
+        <li>原始合计：${r.steps.map(s=>fmt(s.amount)).join(' + ')} = ${fmt(r.raw)} 贯</li>
+        <li>最终进位：⌈${fmt(r.raw)} ÷ 10,000⌉ = ${r.wan} 万贯</li>
+        <li>应付：${r.wan} × RM ${r.pricePerWan} = RM ${r.price}</li>
+      </ol>
+    </details>
+  </div>`;
+  $('out').scrollIntoView({behavior:'smooth',block:'start'});
+}
+function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function toast(t){const el=$('toast');el.textContent=t;el.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>el.hidden=true,1800)}
+
+// ---------- 页面切换 ----------
+document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('nav button').forEach(x=>x.removeAttribute('aria-current'));
+  b.setAttribute('aria-current','page');
+  ['calc','hist','rules'].forEach(v=>$('v-'+v).hidden = v!==b.dataset.v);
+  if (b.dataset.v==='rules') renderRules();
+  window.scrollTo(0,0);
+});
+
+// ---------- 历史 ----------
+async function save(r, input){
+  {
+    const rec=({
+      name:r.name, calendar:input.calendar, solar:r.solarText, lunar:r.lunarText, hourName:r.hourName,
+      bazi:r.bazi, steps:r.steps.map(s=>({label:s.label,detail:s.detail,amount:s.amount})),
+      raw:r.raw, wan:r.wan, price:r.price, ku:r.ku, juan:r.juan, caoguan:r.caoguan, createdAt:Date.now()
+    });
+    rec.id=String(rec.createdAt)+Math.random().toString(36).slice(2,6);
+    histDocs.unshift(rec); histDocs=histDocs.slice(0,500);
+    toast(storeHist()?'已保存到历史记录':'这部手机的浏览器无法保存记录'); renderHist();
+  }
+}
+function renderHist(){
+  const q=$('q').value.trim();
+  const rows=histDocs.filter(d=>!q||d.name.includes(q));
+  $('hEmpty').hidden = rows.length>0;
+  $('hl').innerHTML=rows.map(d=>`<li><div class="l"><b>${esc(d.name)}</b><div class="meta">${esc(d.lunar)} · ${esc(d.hourName)}</div><div class="meta">原始 ${wanText(d.raw)} 万 · ${new Date(d.createdAt).toLocaleDateString('zh-CN')}</div></div><div class="r"><b>${d.wan} 万</b><div class="meta">RM ${d.price}</div><button class="ghost" data-del="${d.id}" style="margin-top:4px;padding:4px 10px">删除</button></div></li>`).join('');
+}
+$('q').oninput=renderHist;
+$('hl').onclick=async e=>{const id=e.target.dataset&&e.target.dataset.del; if(!id) return;
+  if (e.target.dataset.confirm!=='1'){e.target.dataset.confirm='1';e.target.textContent='确认删除';return}
+  histDocs=histDocs.filter(d=>d.id!==id); storeHist(); renderHist(); toast('已删除')};
+
+// ---------- 规则 ----------
+function renderRules(){
+  $('price').value=rules.pricePerWan;
+  $('ry').innerHTML=rules.years.map((y,i)=>{
+    const yrs=[]; for(let n=1924;n<=2043;n++) if(E.yearGanzhiByNumber(n)===y.ganzhi) yrs.push(n);
+    return `<tr><td><b>${y.ganzhi}</b></td><td>${yrs.join(' / ')}</td><td><input type="number" data-y="${i}" data-k="amount" value="${y.amount}"></td><td><input class="s" type="number" data-y="${i}" data-k="juan" value="${y.juan}"></td><td><input class="s" type="number" data-y="${i}" data-k="ku" value="${y.ku}"></td><td><input class="s" type="text" data-y="${i}" data-k="caoguan" value="${esc(y.caoguan)}">${y.caoguanCheck?' <span class="flag">待核</span>':''}</td><td class="meta">${y.source}</td></tr>`}).join('');
+  $('rs').innerHTML=[...E.GAN].map(g=>`<tr><td><b>${g}</b></td><td><input type="number" data-ms="${g}" value="${rules.monthStem[g]}"></td><td><input type="number" data-hs="${g}" value="${rules.hourStem[g]}"></td></tr>`).join('');
+  $('rb').innerHTML=[...ZHI].map(z=>`<tr><td><b>${z}时</b></td><td><input type="number" data-hb="${z}" value="${rules.hourBranch[z]}"></td></tr>`).join('');
+  document.querySelectorAll('#v-rules input').forEach(x=>x.disabled=true);
+  $('save').hidden=true; $('reset').hidden=true;
+}
+// ---------- 启动 ----------
+loadHist(); renderHist();
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
+})();
+</script>
+
+</body>
+</html>
