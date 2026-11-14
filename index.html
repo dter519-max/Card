@@ -53,7 +53,7 @@
     border: 3px solid var(--card);
   }
   h1 { margin-top: 18px; font-size: 22px; font-weight: 700; letter-spacing: -.01em; text-align: center; }
-  .bio { margin-top: 6px; font-size: 14.5px; color: var(--muted); text-align: center; line-height: 1.5; max-width: 320px; }
+  .bio { margin-top: 6px; font-size: 14.5px; color: var(--muted); text-align: center; line-height: 1.5; max-width: 320px; white-space: pre-line; }
   .links { width: 100%; margin-top: 30px; display: flex; flex-direction: column; gap: 12px; }
   .link {
     position: relative;
@@ -100,8 +100,8 @@
    ============================================================ */
 const CONFIG = {
   name: "Dexter",
-  bio: "",
-  avatar: "",            // 头像图片网址；留空则显示名字首字母。也可以把图片放进仓库，写 "avatar.jpg"
+  bio: "Sales & Marketing\nHelping you build & grow your business.",
+  avatar: "avatar.jpg",            // 头像图片网址；留空则显示名字首字母。也可以把图片放进仓库，写 "avatar.jpg"
 
   // 「保存联系人」按钮：对方一点就能把你存进通讯录。不需要就把 showSaveContact 改成 false
   showSaveContact: true,
@@ -109,7 +109,7 @@ const CONFIG = {
     phone: "+60165210347",
     email: "",
     company: "",
-    title: "",
+    title: "Sales & Marketing",
   },
 
   // 按钮列表：type 决定图标和颜色。可选：
@@ -162,7 +162,7 @@ function render() {
   }).join("");
 
   const save = c.showSaveContact
-    ? `<button class="save" onclick="saveContact()"><svg viewBox="0 0 24 24"><path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zm0 2c-2.7 0-8 1.34-8 4v2h10.5a6 6 0 0 1 3.4-5.3A13 13 0 0 0 12 14zm7 1v2h2v2h-2v2h-2v-2h-2v-2h2v-2h2z"/></svg>保存联系人</button>`
+    ? `<button class="save" onclick="saveContact()"><svg viewBox="0 0 24 24"><path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zm0 2c-2.7 0-8 1.34-8 4v2h10.5a6 6 0 0 1 3.4-5.3A13 13 0 0 0 12 14zm7 1v2h2v2h-2v2h-2v-2h-2v-2h2v-2h2z"/></svg>Save Contact</button>`
     : "";
 
   document.getElementById("app").innerHTML = `
